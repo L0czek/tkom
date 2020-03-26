@@ -53,6 +53,7 @@ enum class TokenType {
     COLON, // ':'
     COMMA, // ','
     SEMICOLON, // ';'
+    RANGE_SEP, // '..'
 
     TYPE_DECL, // '->'
 
@@ -60,6 +61,7 @@ enum class TokenType {
     
     KW_FN = 0x800,
     KW_FOR,
+    KW_IN,
     KW_WHILE,
     KW_IF,
     KW_ELSE,

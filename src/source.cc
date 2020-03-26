@@ -28,8 +28,10 @@ const Position& Source::get_position() const noexcept {
 
 void Source::update_position(wchar_t ch) {
     current_position.stream_position++;
+    current_position.column_number++;
     if (ch == L'\n') {
         current_position.line_number++;
+        current_position.column_number = 0;
     }
 }
 
@@ -98,6 +100,41 @@ std::wstring StdInSource::input_between(const Position& start, const Position& e
     return source_code.substr(st, en - st);
 }
 
+StringSource::StringSource(const std::wstring& source) {
+    source_stream.imbue(std::locale(Locale::get().locale(), new std::codecvt_utf8<wchar_t>{}));
+    source_stream << source;
+}
+
+StringSource::~StringSource() {
+
+}
+
+std::optional<wchar_t> StringSource::next() noexcept {
+    wchar_t ch;
+    if (source_stream.get(ch) && std::char_traits<wchar_t>::not_eof(ch)) {
+        Source::update_position(ch);
+        return ch;
+    } else {
+        return {};
+    }
+}
+
+std::wstring StringSource::input_between(const Position& start, const Position& end) {
+    const auto st = start.stream_position;
+    const auto en = end.stream_position;
+
+    if (st >= en) {
+        return L"";
+    }
+
+    auto position_backup = source_stream.tellg();
+    source_stream.seekg(st, std::ios::beg);
+    std::wstring source(en - st, L'\x00');
+    source_stream.read(source.data(), en - st);
+    source_stream.seekg(position_backup);
+    return source;
+}
+
 
 std::unique_ptr<Source> Source::from_file(const std::string& path) {
     return std::make_unique<FileSource>(path);
@@ -107,3 +144,6 @@ std::unique_ptr<Source> Source::from_stdin() {
     return std::make_unique<StdInSource>();
 }
  
+std::unique_ptr<Source> Source::from_wstring(const std::wstring& str) {
+    return std::make_unique<StringSource>(str);
+}

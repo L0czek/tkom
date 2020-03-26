@@ -8,12 +8,19 @@ Lexer::Lexer(std::unique_ptr<Source> src) :locale(Locale::get().locale()) {
     change_source( std::move(src) );
 }
 
+std::unique_ptr<Lexer> from_source(std::unique_ptr<Source> source) {
+    return std::make_unique<Lexer>( std::move(source) );
+}
+
 Token Lexer::next() {
     if (!ch_opt) {
         ch_opt = source->next();
     }
-    skip_space();
+    
+    while (skip_space() || skip_comment());
+
     position = source->get_position();
+    
     if (!ch_opt) {
         return make_token(TokenType::END_OF_FILE, position);
     }
@@ -27,7 +34,7 @@ Token Lexer::next() {
     } else if (ch == L'"') {
         return string_const();
     } else if (operator_chars.find(ch) != operator_chars.end()){
-        return operator_or_comment();
+        return operator_lexem();
     } else {
         report_error(position, L"Unrecognised character", *ch_opt);
     }
@@ -60,112 +67,42 @@ Token Lexer::keyword_or_identifier() {
     }
 }
 
-Token Lexer::operator_or_comment() {
+Token Lexer::operator_lexem() {
     wchar_t ch = *ch_opt;
-    Token token;
-
-    if (ch == L'~') {
-        token = make_token(TokenType::BIT_NEG, position);  
-    } else if (ch == L'!') {
-        ch_opt = source->next();
-        if (ch_opt && *ch_opt == L'=') {
-            token = make_token(TokenType::NOT_EQUAL, position);
-        } else {
-            return make_token(TokenType::BOOLEAN_NEG, position);
-        }
-    } else if (ch == L'%') {
-        token = make_token(TokenType::MODULO, position);
-    } else if (ch == L'^') {
-        token = make_token(TokenType::XOR, position);
-    } else if (ch == L'&') { 
-        ch_opt = source->next();
-        if (ch_opt && *ch_opt == L'&') {
-            token = make_token(TokenType::BOOLEAN_AND, position);
-        } else {
-            return make_token(TokenType::AMPERSAND, position);
-        }
-    } else if (ch == L'|') {
-        ch_opt = source->next();
-        if (ch_opt && *ch_opt == L'|') {
-            token = make_token(TokenType::BOOLEAN_OR, position);
-        } else {
-            return make_token(TokenType::BIT_OR, position);
-        }
-    } else if (ch == L'*') {
-        token = make_token(TokenType::STAR, position);
-    } else if (ch == L'(') {
-        token = make_token(TokenType::L_PAREN, position);
-    } else if (ch == L')') {
-        token = make_token(TokenType::R_PAREN, position);
-    } else if (ch == L'[') {
-        token = make_token(TokenType::LI_PAREN, position);
-    } else if (ch == L']') {
-        token = make_token(TokenType::RI_PAREN, position);
-    } else if (ch == L'{') {
-        token = make_token(TokenType::LS_PAREN, position);
-    } else if (ch == L'}') {
-        token = make_token(TokenType::RS_PAREN, position);
-    } else if (ch == L'<') {
-        ch_opt = source->next();
-        if (ch_opt && *ch_opt == L'<') {
-            token = make_token(TokenType::SHIFT_LEFT, position); 
-        } else if (ch_opt && *ch_opt == L'=') {
-            token = make_token(TokenType::LESS_EQUAL, position);
-        } else {
-            return make_token(TokenType::LESS, position);
-        }
-    } else if (ch == L'>') {
-        ch_opt = source->next();
-        if (ch_opt && *ch_opt == L'>') {
-            token = make_token(TokenType::SHIFT_RIGHT, position); 
-        } else if (ch_opt && *ch_opt == L'=') {
-            token = make_token(TokenType::GREATER_EQUAL, position);
-        } else {
-            return make_token(TokenType::GREATER, position);
-        }
-    } else if (ch == L'=') {
-        ch_opt = source->next();
-        if (ch_opt && *ch_opt == L'=') {
-            token = make_token(TokenType::EQUAL, position);
-        } else {
-            return make_token(TokenType::ASSIGN, position);
-        }
-    } else if (ch == L'+') {
-        token = make_token(TokenType::PLUS, position);
-    } else if (ch == L'-') {
-        ch_opt = source->next();
-        if (ch_opt && *ch_opt == L'>') {
-            token = make_token(TokenType::TYPE_DECL, position);
-        } else {
-            return make_token(TokenType::MINUS, position);
-        }
-    } else if (ch == L':') {
-        token = make_token(TokenType::COLON, position);
-    } else if (ch == L';') {
-        token = make_token(TokenType::SEMICOLON, position);
-    } else if (ch == L',') {
-        token = make_token(TokenType::COMMA, position);
-    } else if (ch == L'/') {
-        auto ch_opt_next = source->next();
-        
-        while (ch_opt_next && *ch_opt == L'/' && *ch_opt_next == L'/') {
-            skip_comment();
-            skip_space();
-
-            if (*ch_opt != L'/') {
-                return next();
-            }
-
-            ch_opt_next = source->next();
-        }
-
-        ch_opt = ch_opt_next;
-        return make_token(TokenType::DIVIDE, position);
-   } else {
-        report_error(position, L"Error operator undefined", *ch_opt);
-    }
     ch_opt = source->next();
-    return token;
+    switch (ch) {
+        case L'~':  return make_token(TokenType::BIT_NEG, position);  
+        case L'!':  return choose_operator_on(L'=', TokenType::NOT_EQUAL, TokenType::BOOLEAN_NEG);
+        case L'%':  return make_token(TokenType::MODULO, position);
+        case L'^':  return make_token(TokenType::XOR, position);
+        case L'&':  return choose_operator_on(L'&', TokenType::BOOLEAN_AND, TokenType::AMPERSAND);
+        case L'|':  return choose_operator_on(L'|', TokenType::BOOLEAN_OR, TokenType::BIT_OR);
+        case L'*':  return make_token(TokenType::STAR, position);
+        case L'(':  return make_token(TokenType::L_PAREN, position);
+        case L')':  return make_token(TokenType::R_PAREN, position);
+        case L'[':  return make_token(TokenType::LI_PAREN, position);
+        case L']':  return make_token(TokenType::RI_PAREN, position);
+        case L'{':  return make_token(TokenType::LS_PAREN, position);
+        case L'}':  return make_token(TokenType::RS_PAREN, position);
+        case L'<':  return choose_operator_on(L'<', TokenType::SHIFT_LEFT, L'=', TokenType::LESS_EQUAL, TokenType::LESS);
+        case L'>':  return choose_operator_on(L'>', TokenType::SHIFT_RIGHT, L'=', TokenType::GREATER_EQUAL, TokenType::GREATER);
+        case L'=':  return choose_operator_on(L'=', TokenType::EQUAL, TokenType::ASSIGN);
+        case L'+':  return make_token(TokenType::PLUS, position);
+        case L'-':  return choose_operator_on(L'>', TokenType::TYPE_DECL, TokenType::MINUS);
+        case L':':  return make_token(TokenType::COLON, position);
+        case L';':  return make_token(TokenType::SEMICOLON, position);
+        case L',':  return make_token(TokenType::COMMA, position);
+        case L'/':  return make_token(TokenType::DIVIDE, position);
+    }
+    if (ch == L'.' && ch_opt && *ch_opt == L'.') {
+        ch_opt = source->next();
+        return make_token(TokenType::RANGE_SEP, position);
+    }
+    report_error(position, L"Error operator undefined", *ch_opt);
+}
+
+Token Lexer::choose_operator_on(TokenType on_mismatch) {
+    return make_token(on_mismatch, position);
 }
 
 bool Lexer::skip_space() {
@@ -179,7 +116,7 @@ bool Lexer::skip_space() {
 }
 
 bool Lexer::skip_comment() {
-    if (*ch_opt != L'/') {
+    if (*ch_opt != L'#') {
         return false;
     }
     while (ch_opt && *ch_opt != L'\n') {
@@ -199,10 +136,6 @@ Token Lexer::int_const() {
             break;
         }
         ch = *ch_opt;
-    }
-
-    if (!std::isspace(ch, locale) && operator_chars.find(ch) == operator_chars.end()) {
-        report_error(position, L"Illegal character in number", str + ch);
     }
 
     try {
@@ -268,7 +201,8 @@ const std::unordered_map<std::wstring, TokenType> Lexer::keywords = {
     { L"elif", TokenType::KW_ELIF },
     { L"else", TokenType::KW_ELSE },
     { L"return", TokenType::KW_RETURN },
-    { L"let", TokenType::KW_LET }
+    { L"let", TokenType::KW_LET },
+    { L"in", TokenType::KW_IN }
 };
 
 const std::unordered_set<wchar_t> Lexer::operator_chars = {
@@ -293,5 +227,6 @@ const std::unordered_set<wchar_t> Lexer::operator_chars = {
     L':',
     L';',
     L',',
-    L'|'
+    L'|',
+    L'.'
 };
