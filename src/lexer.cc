@@ -146,24 +146,22 @@ Token Lexer::operator_or_comment() {
     } else if (ch == L',') {
         token = make_token(TokenType::COMMA, position);
     } else if (ch == L'/') {
-        ch_opt = source->next();
-        if (ch_opt && *ch_opt == L'/') {
-            while (ch_opt && ( skip_comment() || skip_space() ) ) {
-                if (*ch_opt == L'/') {
-                    ch_opt = source->next();
-                    if (ch_opt && *ch_opt == L'/') {
-                        continue;
-                    } else {
-                        return make_token(TokenType::DIVIDE, position);
-                    }
-                } else {
-                    return next(); // will never reach here again in recursion beacuse we do not allow `/` in ch_opt
-                }
-            } 
-        } else {
-            return make_token(TokenType::DIVIDE, position);
+        auto ch_opt_next = source->next();
+        
+        while (ch_opt_next && *ch_opt == L'/' && *ch_opt_next == L'/') {
+            skip_comment();
+            skip_space();
+
+            if (*ch_opt != L'/') {
+                return next();
+            }
+
+            ch_opt_next = source->next();
         }
-    } else {
+
+        ch_opt = ch_opt_next;
+        return make_token(TokenType::DIVIDE, position);
+   } else {
         report_error(position, L"Error operator undefined", *ch_opt);
     }
     ch_opt = source->next();
