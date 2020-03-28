@@ -88,6 +88,20 @@ bool is_valid(const Token& token);
 bool is_eof(const Token& token);
 bool is_kewyord(const Token& token);
 
+bool is_compare_op(const Token& token);
+bool is_boolean_binary_op(const Token& token);
+bool is_bitwise_op(const Token& token);
+bool is_additive_op(const Token& token);
+bool is_multiplicative_op(const Token& token);
+bool is_unary_op(const Token& token);
+
+template<typename ... Types>
+bool is_one_of(const Token& token, TokenType type, Types&&... types) {
+    return token.type == type ? true : is_one_of(token, std::forward<Types>(types)...);
+}
+
+inline bool is_one_of(const Token&) { return false; }
+
 std::optional<int> get_int(const Token& token);
 std::optional<std::wstring> get_string(const Token& token);
 

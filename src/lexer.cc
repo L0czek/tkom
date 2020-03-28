@@ -8,7 +8,7 @@ Lexer::Lexer(std::unique_ptr<Source> src) :locale(Locale::get().locale()) {
     change_source( std::move(src) );
 }
 
-std::unique_ptr<Lexer> from_source(std::unique_ptr<Source> source) {
+std::unique_ptr<Lexer> Lexer::from_source(std::unique_ptr<Source> source) {
     return std::make_unique<Lexer>( std::move(source) );
 }
 
@@ -173,6 +173,10 @@ Token Lexer::string_const() {
     }
     report_error(position, L"Error reached end of file while collecting string", str);
 }
+
+ std::wstring Lexer::source_between(const Position& start, const Position& end) {
+    return source->input_between(start, end);
+ }
 
 
 void Lexer::report_error(const Position& error_position, const std::wstring& error_msg, wchar_t bad_char) {

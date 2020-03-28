@@ -12,9 +12,14 @@ add_library(Lexer STATIC
         src/source.cc
     )
 
+add_library(Parser STATIC
+        src/parser.cc
+        src/node.cc
+    )
+
 add_executable(rc src/main.cc)
 
-target_link_libraries(rc Lexer)
+target_link_libraries(rc Lexer Parser)
 
 enable_testing()
 

@@ -27,6 +27,31 @@ bool is_kewyord(const Token& token) {
     return static_cast<std::size_t>(token.type) & 0x800;
 }
 
+bool is_compare_op(const Token& token) {
+    return is_one_of(token, TokenType::LESS, TokenType::GREATER, TokenType::LESS_EQUAL, 
+        TokenType::GREATER_EQUAL, TokenType::EQUAL, TokenType::NOT_EQUAL);
+}
+
+bool is_boolean_binary_op(const Token& token) {
+    return is_one_of(token, TokenType::BOOLEAN_AND, TokenType::BOOLEAN_OR);
+}
+
+bool is_bitwise_op(const Token& token) {
+    return is_one_of(token, TokenType::AMPERSAND, TokenType::BIT_OR, TokenType::XOR, TokenType::SHIFT_LEFT, TokenType::SHIFT_RIGHT);
+}
+
+bool is_additive_op(const Token& token) {
+    return is_one_of(token, TokenType::PLUS, TokenType::MINUS);
+}
+
+bool is_multiplicative_op(const Token& token) {
+    return is_one_of(token, TokenType::STAR, TokenType::DIVIDE, TokenType::MODULO);
+}
+
+bool is_unary_op(const Token& token) {
+    return is_one_of(token, TokenType::AMPERSAND, TokenType::STAR, TokenType::BIT_NEG);
+}
+
 std::optional<int> get_int(const Token& token) {
     try {
         return std::get<int>(token.value);

@@ -35,4 +35,9 @@ inline std::string to_ascii_string(const std::wstring& wstr) {
     return std::string(wstr.begin(), wstr.end());
 }
 
+template<typename Class, typename ... Elements>
+std::unique_ptr<Class> make(Elements&&... elements) {
+    return std::make_unique<Class>( std::move(elements)... );
+}
+
 #endif

@@ -2,17 +2,18 @@
 
 #include "source.hpp"
 #include "lexer.hpp"
+#include "parser.hpp"
 
 int main() {
-    Lexer lexer(Source::from_stdin());
+    auto lexer = Lexer::from_source(Source::from_stdin());
+    Parser parser;
     try{ 
-        auto token = lexer.next();
-        while (!is_eof(token)) {
-            std::wcout << repr(token) << L"\n";
-            token = lexer.next();
-        }
-        std::wcout << repr(token) << L"\n";
+        parser.attach_lexer(std::move(lexer));
+        auto ast = parser.parse_Program();
+        int a = 1;
     } catch (LexerException e) {
+        std::wcout << e.message() << L"\n";
+    } catch (ParserException e) {
         std::wcout << e.message() << L"\n";
     }
 }
