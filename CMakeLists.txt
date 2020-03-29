@@ -4,7 +4,7 @@ project(TKOM)
 
 include_directories("inc")
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-ggdb")
+set(CMAKE_CXX_FLAGS "-ggdb -Wall -Wextra")
 
 add_library(Lexer STATIC
         src/lexer.cc
@@ -15,6 +15,7 @@ add_library(Lexer STATIC
 add_library(Parser STATIC
         src/parser.cc
         src/node.cc
+        src/print.cc
     )
 
 add_executable(rc src/main.cc)
