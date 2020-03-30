@@ -255,7 +255,7 @@ std::unique_ptr<Expression> Parser::parse_Factor() {
 		}
 	}
 
-	throw ParserException{L"crazy shit is going on"};
+	throw ParserException{L"should never reach here"};
 }
 
 std::unique_ptr<FunctionCall> Parser::parse_FunctionCall(std::wstring name) {
