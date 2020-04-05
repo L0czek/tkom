@@ -17,7 +17,7 @@ BuiltinType Parser::get_builtin_type(const std::wstring& wstr) const {
 	} else if (wstr == L"string") {
 		return BuiltinType::String;
 	} else {
-		throw ParserException{L"invalid type"};
+		report_invalid_type();
 	}
 }
 
