@@ -6,6 +6,7 @@
 #include <optional>
 #include <memory>
 #include <sstream>
+#include <unorderd_map>
 
 struct Position {
     std::size_t stream_position;
@@ -17,6 +18,7 @@ std::wstring to_wstring(const Position& position);
 
 class Source { 
     Position current_position;
+    std::unordered_map<std::size_t, Position> line_position;
     Source(const Source&) = delete;
 protected:
     Source();
@@ -25,9 +27,10 @@ public:
     virtual std::optional<wchar_t> next() noexcept =0;
     const Position& get_position() const noexcept;
     virtual std::wstring input_between(const Position& start, const Position& end) =0;
+    std::wstring get_lines(std::size_t from, std::size_t to);
 
     virtual ~Source();
-
+    
     static std::unique_ptr<Source> from_file(const std::string& path);
     static std::unique_ptr<Source> from_stdin();
     static std::unique_ptr<Source> from_wstring(const std::wstring& str);

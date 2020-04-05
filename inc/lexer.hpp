@@ -38,6 +38,7 @@ public:
 
     std::unique_ptr<Source> change_source(std::unique_ptr<Source> source) noexcept;
     std::wstring source_between(const Position& start, const Position& end);
+    std::wstring get_lines(std::size_t from, std::size_t to);
 
     static std::unique_ptr<Lexer> from_source(std::unique_ptr<Source> source);
 };

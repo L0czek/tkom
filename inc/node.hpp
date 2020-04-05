@@ -8,9 +8,14 @@
 #include <string>
 #include "token.hpp"
 #include "visitor.hpp"
+#include "source.hpp"
 
 struct ASTNode {
+    
+    
+    virtual ~ASTNode() {}
     virtual void accept(Visitor& ) const =0;
+
 };
 
 enum class BinaryOperator {
@@ -58,14 +63,20 @@ enum class BuiltinType {
     IntPointer
 };
 
-struct Expression :public ASTNode {};
+struct Expression :public ASTNode {
+    Position pos;
+
+    const Position& position() const noexcept { return pos; }
+    Expression(const Position& position) : pos(position) {}
+    virtual ~Expression() {}
+};
 
 struct UnaryExpression :public Expression {
     UnaryOperator op;
     std::unique_ptr<Expression> rhs;
 public:
-    UnaryExpression(UnaryOperator op, std::unique_ptr<Expression> rhs) 
-    :op(op), rhs(std::move(rhs)) {}
+    UnaryExpression(const Position& position, UnaryOperator op, std::unique_ptr<Expression> rhs) 
+    : Expression(position), op(op), rhs(std::move(rhs)) {}
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };
 
@@ -74,8 +85,8 @@ struct BinaryExpression :public Expression {
     std::unique_ptr<Expression> lhs;
     std::unique_ptr<Expression> rhs;
 public:
-    BinaryExpression(BinaryOperator op, std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> rhs) 
-    : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+    BinaryExpression(const Position& position, BinaryOperator op, std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> rhs) 
+    : Expression(position), op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };
 
@@ -83,15 +94,15 @@ struct IndexExpression :public Expression {
     std::unique_ptr<Expression> ptr;
     std::unique_ptr<Expression> index;
 public:
-    IndexExpression(std::unique_ptr<Expression> ptr, std::unique_ptr<Expression> index)
-    : ptr(std::move(ptr)), index(std::move(index)) {}
+    IndexExpression(const Position& position, std::unique_ptr<Expression> ptr, std::unique_ptr<Expression> index)
+    : Expression(position),  ptr(std::move(ptr)), index(std::move(index)) {}
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };  
 
 struct VariableRef :public Expression {
     std::wstring var_name;
 public:
-    VariableRef(std::wstring name) : var_name(name) {}
+    VariableRef(const Position& position,std::wstring name) : Expression(position),  var_name(name) {}
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };
 
@@ -99,26 +110,28 @@ struct FunctionCall :public Expression {
     std::wstring func_name;
     std::list<std::unique_ptr<Expression>> arguments;
 public:
-    FunctionCall(std::wstring func_name, std::list<std::unique_ptr<Expression>> arguments) 
-    : func_name(std::move(func_name)), arguments(std::move(arguments)) {}
+    FunctionCall(const Position& position,std::wstring func_name, std::list<std::unique_ptr<Expression>> arguments) 
+    : Expression(position),  func_name(std::move(func_name)), arguments(std::move(arguments)) {}
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };
 
 struct IntConst :public Expression {
     int value;
 public:
-    IntConst(int value) : value(value) {}
+    IntConst(const Position& position,int value) :  Expression(position), value(value) {}
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };
 
 struct StringConst :public Expression {
     std::wstring value;
 public:
-    StringConst(std::wstring value) : value(std::move(value)) {}
+    StringConst(const Position& position,std::wstring value) : Expression(position),  value(std::move(value)) {}
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };
 
-struct Statement :public ASTNode {};
+struct Statement :public ASTNode {
+    virtual ~Statement() {}
+};
 
 struct Block :public ASTNode {
     std::list<std::unique_ptr<Statement>> statements;

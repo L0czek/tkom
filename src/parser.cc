@@ -3,6 +3,7 @@
 std::unique_ptr<Lexer> Parser::attach_lexer(std::unique_ptr<Lexer> lex) noexcept {
 	auto tmp = std::move(lexer);
 	lexer = std::move(lex);
+	advance();
 	return tmp;
 }
 
@@ -21,45 +22,55 @@ BuiltinType Parser::get_builtin_type(const std::wstring& wstr) const {
 }
 
 std::unique_ptr<Program> Parser::parse_Program() {
-	advance();
-	
-	std::list<std::unique_ptr<FunctionDecl>> functions;
 	std::list<std::unique_ptr<VariableDecl>> global_vars;
+    std::list<std::unique_ptr<FunctionDecl>> functions;
 
-	while (!is_eof(token)) {
-		expect(L"Expected function definition or global variable definition", TokenType::KW_FN, TokenType::KW_LET);
+    auto function = parse_FunctionDecl();
+    auto variable = parse_VariableDecl();
 
-		if (token.type == TokenType::KW_FN) {
-			functions.push_back(parse_FunctionDecl());
-		} else {
-			global_vars.push_back(parse_VariableDecl());
-		}
-	}
+    while (function || variable) {
+    	if (function) {
+    		functions.push_back(std::move(function));
+    	}
+    	if (variable) {
+    		global_vars.push_back(std::move(variable));
+    	}
+    	function = parse_FunctionDecl();
+    	variable = parse_VariableDecl();
+    }
 
-	return make<Program>( std::move(global_vars), std::move(functions) );
+    expect(L"Expected function `fn` declaration or variable `let` definition token", TokenType::END_OF_FILE);
+
+    return make<Program>(std::move(global_vars), std::move(functions));
 }
 
 std::unique_ptr<FunctionDecl> Parser::parse_FunctionDecl() {
+	if (!is_one_of(token, TokenType::KW_FN)) {
+		return nullptr;
+	}
 	advance();
 
-	expect(L"Expected function name.", TokenType::IDENTIFIER);
+	expect(L"Expected function name", TokenType::IDENTIFIER);
 	std::wstring name = *get_string(token);
 	advance();
-	expect(L"Expected `(` ", TokenType::L_PAREN);
-	advance();
-	std::list<std::pair<std::wstring, BuiltinType>> arguments = parse_DeclArgumentList();
-	expect(L"Expected `)` ", TokenType::R_PAREN);
-	advance();
-	expect(L"Expected `->` to define return type.", TokenType::TYPE_DECL);
-	advance();
 
-	auto type = parse_VarType();
+	eat(L"Expected openning paren `(`", TokenType::L_PAREN);
+	auto parameters = parse_ParameterList();
+	eat(L"Expected closing paren `)`", TokenType::R_PAREN);
+	
+	eat(L"Expected type declaration `->` token", TokenType::TYPE_DECL);
+	auto type = parse_Type();
 	auto block = parse_Block();
 
-	return make<FunctionDecl>(std::move(name), type, std::move(arguments), std::move(block));
+	return make<FunctionDecl>(std::move(name), type, std::move(parameters), std::move(block));
 }
 
 std::unique_ptr<VariableDecl> Parser::parse_VariableDecl() {
+	if (!is_one_of(token, TokenType::KW_LET)) {
+		return nullptr;
+	}
+	advance();
+
 	VariableDecl::VarDeclList list;
 
 	list.push_back(parse_SingleVarDecl());
@@ -68,424 +79,504 @@ std::unique_ptr<VariableDecl> Parser::parse_VariableDecl() {
 		advance();
 		list.push_back(parse_SingleVarDecl());
 	}
-	
-	expect(L"Expected `:` to define varible type.", TokenType::COLON);
-	advance();
-	auto type = parse_VarType();
-	
-	expect(L"Expected `;` at the end of instruction.", TokenType::SEMICOLON);
-	advance();
+
+	eat(L"Expected type declaration `:` token", TokenType::COLON);
+	auto type = parse_Type();
+	eat(L"Expected semicolon `;` at the end of statement", TokenType::SEMICOLON);
 
 	for (auto &i : list) {
 		i.type = type;
 	}
-	
 	return make<VariableDecl>(std::move(list));
 }
 
-BuiltinType Parser::parse_VarType() {
-	expect(L"Expected variable type", TokenType::IDENTIFIER);
-	BuiltinType type = get_builtin_type(*get_string(token));
-	advance();
-	return type;
-}
-
 VariableDecl::SingleVarDecl Parser::parse_SingleVarDecl() {
-	VariableDecl::SingleVarDecl var_decl;
-	advance();
-	expect(L"Expected variable name", TokenType::IDENTIFIER);
-	var_decl.name = *get_string(token);
-	
-	advance();
-	expect(L"Expected initial value assignment or next variable definition or type declaration", 
-		TokenType::ASSIGN, TokenType::COMMA, TokenType::COLON);
+	VariableDecl::SingleVarDecl var;
 
-	if (is_one_of(token, TokenType::COMMA, TokenType::COLON)) {
-		return var_decl;
-	} else {
+	expect(L"Expected variable name", TokenType::IDENTIFIER);
+	var.name = *get_string(token);
+	advance();
+
+	if (is_one_of(token, TokenType::ASSIGN)) {
 		advance();
-		var_decl.initial_value = parse_ArithmeticalExpr();
+		auto value = parse_ArithmeticalExpr();
+		if (!value) {
+			report_expected_expression();
+		}
+		var.initial_value = std::move(value);
 	}
 
-	return var_decl;
+	return var;
 }
 
-std::list<std::pair<std::wstring, BuiltinType>> Parser::parse_DeclArgumentList() {
-	std::list<std::pair<std::wstring, BuiltinType>> list;
+BuiltinType Parser::parse_Type() {
+	expect(L"Expected type name", TokenType::IDENTIFIER);
+	std::wstring name = *get_string(token);
 
-	while (is_one_of(token, TokenType::IDENTIFIER)) {
-		std::wstring name = *get_string(token);
+	if (name == L"int") {
 		advance();
-		expect(L"Expected `:` to define varible type.", TokenType::COLON);
+		if (is_one_of(token, TokenType::STAR)) {
+			advance();
+			return BuiltinType::IntPointer;
+		}
+		return BuiltinType::Int;
+	} else if (name == L"string") {
 		advance();
-		auto type = parse_VarType();
-		list.push_back(std::make_pair(std::move(name), type));
-		if (!is_one_of(token, TokenType::COMMA)) {
-			break;
+		return BuiltinType::String;
+	} else {
+		report_invalid_type();
+	}
+}
+
+std::list<std::pair<std::wstring, BuiltinType>> Parser::parse_ParameterList() {
+	std::list<std::pair<std::wstring, BuiltinType>> list;
+	auto param = parse_SingleParameter();
+	if (!param) {
+		return {};
+	} else {
+		list.push_back(std::move(*param));
+	}
+
+	while (is_one_of(token, TokenType::COMMA)) {
+		advance();
+		param = parse_SingleParameter();
+		if (param) {
+			list.push_back(std::move(*param));
 		} else {
-			advance(); // next argument
+			report_expected_parameter();
 		}
 	}
-
 	return list;
 }
 
-std::unique_ptr<Expression> Parser::parse_ConditionalExpression(std::unique_ptr<Expression> prev_lhs) {
-	auto lhs = prev_lhs && is_boolean_binary_op(token) ? std::move(prev_lhs) : parse_UnaryLogicalExpr(std::move(prev_lhs));
-
-	if (is_one_of(token, TokenType::BOOLEAN_AND, TokenType::BOOLEAN_OR)) {
-		auto op = BinOp_from_token(token);
-		advance();
-		auto rhs = parse_ConditionalExpression();
-		return make<BinaryExpression>(op, std::move(lhs), std::move(rhs));
-	} else {
-		return lhs;
-	}
-}
-
-std::unique_ptr<Expression> Parser::parse_UnaryLogicalExpr(std::unique_ptr<Expression> prev_lhs) {
-	if (prev_lhs) {
-		return parse_LogicalExpr(std::move(prev_lhs));
-	} else {
-		if (is_one_of(token, TokenType::BOOLEAN_NEG)) {
-			advance();
-			return make<UnaryExpression>(UnaryOperator::BooleanNeg, parse_LogicalExpr());
-		} else {
-			return parse_LogicalExpr();
-		}
-	}
-}
-
-std::unique_ptr<Expression> Parser::parse_LogicalExpr(std::unique_ptr<Expression> prev_lhs) {
-	auto lhs = prev_lhs && is_compare_op(token) ? std::move(prev_lhs) : parse_ArithmeticalExpr(std::move(prev_lhs));
-
-	if (is_compare_op(token)) {
-		auto op = BinOp_from_token(token);
-		advance();
-		return make<BinaryExpression>(op, std::move(lhs), parse_LogicalExpr());
-	} else {
-		return lhs;
-	}
-}
-
-std::unique_ptr<Expression> Parser::parse_ArithmeticalExpr(std::unique_ptr<Expression> prev_lhs) {
-	auto lhs = prev_lhs && is_bitwise_op(token) ? std::move(prev_lhs) : parse_AdditiveExpr(std::move(prev_lhs));
-
-	if (is_bitwise_op(token)) {
-		auto op = BinOp_from_token(token);
-		advance();
-		return make<BinaryExpression>(op, std::move(lhs), parse_ArithmeticalExpr());
-	} else {
-		return lhs;
-	}
-}
-
-std::unique_ptr<Expression> Parser::parse_AdditiveExpr(std::unique_ptr<Expression> prev_lhs) {
-	auto lhs = prev_lhs && is_additive_op(token) ? std::move(prev_lhs) : parse_MultiplicativeExpr(std::move(prev_lhs));
-
-	if (is_additive_op(token)) {
-		auto op = BinOp_from_token(token);
-		advance();
-		return make<BinaryExpression>(op, std::move(lhs), parse_AdditiveExpr());
-	} else {
-		return lhs;
-	}
-}
-
-std::unique_ptr<Expression> Parser::parse_MultiplicativeExpr(std::unique_ptr<Expression> prev_lhs) {
-	auto lhs = prev_lhs && is_multiplicative_op(token) ? std::move(prev_lhs) : parse_UnaryExpression(std::move(prev_lhs));
-
-	if (is_multiplicative_op(token)) {
-		auto op = BinOp_from_token(token);
-		advance();
-		return make<BinaryExpression>(op, std::move(lhs), parse_MultiplicativeExpr());
-	} else {
-		return lhs;
-	}
-}
-
-std::unique_ptr<Expression> Parser::parse_UnaryExpression(std::unique_ptr<Expression> prev_lhs) {
-	if (prev_lhs) {
-		return prev_lhs;
-	}
-
-	while (is_unary_op(token)) {
-		stack.push(UnOp_from_token(token));
-		advance();
-	}
-
-	auto node = parse_Factor();
-
-	if (token.type == TokenType::LI_PAREN) {
-		node = parse_IndexExpression(std::move(node));
-	}
-
-	while (!stack.empty()) {
-		node = make<UnaryExpression>(stack.top(), std::move(node));
-		stack.pop();
-	}
-
-	return node;
-}
-
-std::unique_ptr<Expression> Parser::parse_Factor() {
-	if (token.type == TokenType::L_PAREN) {
-		advance();
-		auto node = parse_ConditionalExpression();
-		expect(L"Expected `)`", TokenType::R_PAREN);
-	}
-
-	if (is_one_of(token, TokenType::INTCONST, TokenType::STRINGCONST)) {
-		std::unique_ptr<Expression> expr;
-		switch (token.type) {
-			case TokenType::INTCONST:     expr = make<IntConst>(*get_int(token)); break;
-			case TokenType::STRINGCONST:  expr = make<StringConst>(*get_string(token)); break;
-		}
-		advance();
-		return expr;
-	}
-
-	if (token.type == TokenType::IDENTIFIER) {
-		std::wstring name = *get_string(token);
-		advance();
-		if (token.type == TokenType::L_PAREN) {
-			return parse_FunctionCall(std::move(name));
-		} else {
-			return make<VariableRef>(std::move(name));
-		}
-	}
-
-	throw ParserException{L"should never reach here"};
-}
-
-std::unique_ptr<FunctionCall> Parser::parse_FunctionCall(std::wstring name) {
-	advance();
-	std::list<std::unique_ptr<Expression>> arguments = parse_CallArgumentList();
-
-	expect(L"Expected `)` after arguments list", TokenType::R_PAREN);
-	advance();
-
-	return make<FunctionCall>(std::move(name), std::move(arguments));
-}
-
-std::list<std::unique_ptr<Expression>> Parser::parse_CallArgumentList() {
-	if (token.type == TokenType::R_PAREN) {
+std::optional<std::pair<std::wstring, BuiltinType>> Parser::parse_SingleParameter() {
+	if (!is_one_of(token, TokenType::IDENTIFIER)) {
 		return {};
 	}
-
-	std::list<std::unique_ptr<Expression>> arguments;
-	arguments.push_back(parse_ArithmeticalExpr());
-
-	while (token.type == TokenType::COMMA) {
-		advance();
-		arguments.push_back(parse_ArithmeticalExpr());
-	}
-
-	return arguments;
-}
-
-std::unique_ptr<Expression> Parser::parse_MutableExpression() {
-	if (token.type == TokenType::STAR) {
-		advance();
-		auto node = parse_PointerExpr();
-		if (!node) {
-			stack.push(UnOp_from_token(token));
-			return node;
-		} else {
-			return make<UnaryExpression>(UnaryOperator::Deref, std::move(node));
-		}
-	}
-
-	std::unique_ptr<Expression> node;
-	if (token.type == TokenType::IDENTIFIER) {
-		std::wstring name = *get_string(token);
-		advance();
-		if (token.type == TokenType::L_PAREN) {
-			node = parse_FunctionCall(std::move(name));
-		} else {
-			node = make<VariableRef>(std::move(name));
-		}
-		if (token.type == TokenType::LI_PAREN) {
-			node = parse_IndexExpression(std::move(node));
-		}
-	}
-	return node;
-}
-
-std::unique_ptr<Expression> Parser::parse_IndexExpression(std::unique_ptr<Expression> ptr) {
-	advance();
-	auto index = parse_ArithmeticalExpr();
-	expect(L"Expected `]`", TokenType::RI_PAREN);
-	advance();
-	return make<IndexExpression>(std::move(ptr), std::move(index));
-}
-
-std::unique_ptr<Expression> Parser::parse_PointerExpr() {
-	if (token.type == TokenType::AMPERSAND) {
-		advance();
-		expect(L"Expected variable name", TokenType::IDENTIFIER);
-		std::wstring name = *get_string(token);
-		advance();
-		return make<UnaryExpression>(UnaryOperator::Addrof, make<VariableRef>(std::move(name)));
-	}
-
-
-	if (token.type == TokenType::IDENTIFIER) {
-		std::wstring name = *get_string(token);
-		advance();
-		if (token.type == TokenType::L_PAREN) {
-			return parse_FunctionCall(std::move(name));
-		} else {
-			return make<VariableRef>(std::move(name));
-		}
-	}
-	
-	if (token.type == TokenType::L_PAREN) {
-		advance();
-		auto node = parse_ArithmeticalExpr();
-		expect(L"Expected `)`", TokenType::R_PAREN);
-		advance();
-		return node;
-	}
-}
-
-std::unique_ptr<Statement> Parser::parse_AssignStatement() {
-	if (is_one_of(token, TokenType::BIT_NEG, TokenType::BOOLEAN_NEG, TokenType::AMPERSAND, 
-						 TokenType::INTCONST, TokenType::STRINGCONST)) {
-		return parse_ExpressionStatement();
-	}
-
-	auto node = parse_MutableExpression();
-	if (!node || token.type != TokenType::ASSIGN) {
-		return parse_ExpressionStatement(std::move(node));
-	}
-	std::list<std::unique_ptr<Expression>> parts;
-	parts.push_back(std::move(node));
-
-	while (token.type == TokenType::ASSIGN) {
-		advance();
-		node = parse_MutableExpression();
-		if (!node) {
-			break;
-		}
-		parts.push_back(std::move(node));
-	}
-
-	if (token.type != TokenType::SEMICOLON) {
-		parts.push_back(parse_ArithmeticalExpr());
-	}
-	
-	expect(L"Expected `;` after statement", TokenType::SEMICOLON);
-	advance();
-	return make<AssignmentStatement>(std::move(parts));
-}
-
-std::unique_ptr<ExpressionStatement> Parser::parse_ExpressionStatement(std::unique_ptr<Expression> prev_lhs) {
-	auto node = parse_ConditionalExpression(std::move(prev_lhs));
-	expect(L"Expected `;` after expression", TokenType::SEMICOLON);
-	advance();
-	return make<ExpressionStatement>(std::move(node));
-}
-
-std::unique_ptr<Statement> Parser::parse_Statement() {
-	switch (token.type) {
-		case TokenType::KW_LET:    return parse_VariableDecl();
-		case TokenType::KW_IF:     return parse_IfStatement();
-		case TokenType::KW_FOR:    return parse_ForStatement();
-		case TokenType::KW_WHILE:  return parse_WhileStatement();
-		case TokenType::KW_RETURN: return parse_ReturnSatetemnt();
-		default:
-			return parse_AssignStatement();
-	}
-}
-
-std::unique_ptr<IfStatement> Parser::parse_IfStatement() {
-	advance();
-
-	std::list<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Block>>> blocks;
-	std::optional<std::unique_ptr<Block>> else_statement;
-
-	auto condition = parse_ConditionalExpression();
-	auto block = parse_Block();
-
-	blocks.push_back(std::make_pair(std::move(condition), std::move(block)));
-
-	while (token.type == TokenType::KW_ELIF) {
-		advance();
-		auto condition = parse_ConditionalExpression();
-		auto block = parse_Block();
-	
-		blocks.push_back(std::make_pair(std::move(condition), std::move(block)));
-	}
-
-	if (token.type == TokenType::KW_ELSE) {
-		advance();
-		else_statement = parse_Block();
-	}
-
-	return make<IfStatement>(std::move(blocks), std::move(else_statement));
-}
-
-std::unique_ptr<ForStatement> Parser::parse_ForStatement() {
-	advance();
-	expect(L"Expected varible name", TokenType::IDENTIFIER);
 	std::wstring name = *get_string(token);
 	advance();
-	expect(L"Expected `in` keyword", TokenType::KW_IN);
-	advance();
-
-	auto start = parse_ArithmeticalExpr();
-	expect(L"Expected `..` range separator", TokenType::RANGE_SEP);
-	advance();
-	auto end = parse_ArithmeticalExpr();
-	std::optional<std::unique_ptr<Expression>> increase;
-
-	if (token.type == TokenType::RANGE_SEP) {
-		advance();
-		increase = parse_ArithmeticalExpr();
-	}
-
-	auto block = parse_Block();
-
-	return make<ForStatement>(std::move(name), std::move(start), std::move(end), std::move(increase), std::move(block));
-}
-
-std::unique_ptr<WhileStatement> Parser::parse_WhileStatement() {
-	advance();
-
-	auto condition = parse_ConditionalExpression();
-	auto block = parse_Block();
-
-	return make<WhileStatement>(std::move(condition), std::move(block));
-}
-
-std::unique_ptr<ReturnStatement> Parser::parse_ReturnSatetemnt() {
-	advance();
-
-	auto value = parse_ArithmeticalExpr();
-
-	expect(L"Expected `;` at the end of return statement", TokenType::SEMICOLON);
-	advance();
-	return make<ReturnStatement>(std::move(value));
+	eat(L"Expected type declaration token `:`", TokenType::COLON);
+	auto type = parse_Type();
+	return std::make_pair(std::move(name), type);
 }
 
 std::unique_ptr<Block> Parser::parse_Block() {
-	expect(L"Expected `{` at the beginning of block", TokenType::LS_PAREN);
-	advance();
-
-	std::list<std::unique_ptr<Statement>> block;
-
-	while (token.type != TokenType::RS_PAREN) {
-		block.push_back(parse_Statement());
+	eat(L"Expected `{` paren", TokenType::LS_PAREN);
+	std::list<std::unique_ptr<Statement>> list;
+	auto statement = parse_Statement();
+	while (statement) {
+		list.push_back(std::move(statement));
+		statement = parse_Statement();
 	}
-	advance();
-
-	return make<Block>(std::move(block));
+	eat(L"Expected `}` paren", TokenType::RS_PAREN);
+	return make<Block>(std::move(std::move(list)));
 }
 
-void Parser::report_error(const Position& start, const Position& end, const std::wstring& error_msg) {
-	throw ParserException{
-		concat(L"line :", std::to_wstring(start.line_number), L" in `", lexer->source_between(start, end), L"`\n", error_msg)
+std::unique_ptr<Expression> Parser::parse_ConditionalExpression() {
+	auto node = parse_UnaryLogicalExpr();
+	if (!node) {
+		return nullptr;
+	}
+	while (is_boolean_binary_op(token)) {
+		auto op = BinOp_from_token(token);
+		auto position = token.position;
+		advance();
+		auto rhs = parse_UnaryLogicalExpr();
+		if (!rhs) {
+			return nullptr;
+		}
+		node = make<BinaryExpression>(position, op, std::move(node), std::move(rhs));
+	}
+	return node;
+}
+
+std::unique_ptr<Expression> Parser::parse_UnaryLogicalExpr() {
+	if (is_one_of(token, TokenType::BOOLEAN_NEG)) {
+		auto position = token.position;
+		advance();
+		auto lhs = parse_LogicalExpr();
+		if (!lhs) {
+			return nullptr;
+		}
+		return make<UnaryExpression>(position, UnaryOperator::BooleanNeg, std::move(lhs));
+	} else {
+		return parse_LogicalExpr();
+	}
+}
+
+std::unique_ptr<Expression> Parser::parse_LogicalExpr() {
+	auto node = parse_ArithmeticalExpr();
+	if (!node) {
+		return nullptr;
+	}
+	while (is_compare_op(token)) {
+		auto op = BinOp_from_token(token);
+		auto position = token.position;
+		advance();
+		auto rhs = parse_ArithmeticalExpr();
+		if (!rhs) {
+			return nullptr;
+		}
+		node = make<BinaryExpression>(position, op, std::move(node), std::move(rhs));
+	}
+	return node;
+}
+
+std::unique_ptr<Expression> Parser::parse_ArithmeticalExpr() {
+	auto node = parse_AdditiveExpr();
+	if (!node) {
+		return nullptr;
+	}
+	while (is_bitwise_op(token)) {
+		auto op = BinOp_from_token(token);
+		auto position = token.position;
+		advance();
+		auto rhs = parse_AdditiveExpr();
+		if (!rhs) {
+			return nullptr;
+		}
+		node = make<BinaryExpression>(position, op, std::move(node), std::move(rhs));
+	}
+	return node;
+}
+
+std::unique_ptr<Expression> Parser::parse_AdditiveExpr() {
+	auto node = parse_MultiplicativeExpr();
+	if (!node) {
+		return nullptr;
+	}
+	while (is_additive_op(token)) {
+		auto op = BinOp_from_token(token);
+		auto position = token.position;
+		advance();
+		auto rhs = parse_MultiplicativeExpr();
+		if (!rhs) {
+			return nullptr;
+		}
+		node = make<BinaryExpression>(position, op, std::move(node), std::move(rhs));
+	}
+	return node;
+}
+
+std::unique_ptr<Expression> Parser::parse_MultiplicativeExpr() {
+	auto node = parse_UnaryExpression();
+	if (!node) {
+		return nullptr;
+	}
+	while (is_multiplicative_op(token)) {
+		auto op = BinOp_from_token(token);
+		auto position = token.position;
+		advance();
+		auto rhs = parse_UnaryExpression();
+		if (!rhs) {
+			return nullptr;
+		}
+		node = make<BinaryExpression>(position, op, std::move(node), std::move(rhs));
+	}
+	return node;
+}
+
+std::unique_ptr<Expression> Parser::parse_UnaryExpression() {
+	std::stack<std::pair<UnaryOperator, Position>> operators;
+	while (is_unary_op(token)) {
+		operators.push(std::make_pair(UnOp_from_token(token), token.position));
+		advance();
+	}
+	auto lhs = parse_Factor();
+	auto index_position = token.position;
+	auto index = parse_IndexExpression();
+	if (index) {
+		lhs = make<IndexExpression>(index_position, std::move(lhs), std::move(index));
+	}
+	if (!lhs) {
+		return nullptr;
+	}
+	while (!operators.empty()) {
+		auto [ op, position ] = operators.top();
+		operators.pop();
+		lhs = make<UnaryExpression>(position, op, std::move(lhs));
+	}
+	return lhs;
+}
+
+std::unique_ptr<Expression> Parser::parse_Factor() {
+	auto int_const = parse_IntConst();
+	if (int_const) {
+		return int_const;
+	}
+
+	auto string_const = parse_StringConst();
+	if (string_const) {
+		return string_const;
+	}
+
+	auto expr = parse_FuncCallOrVariableRef();
+	if (expr) {
+		return expr;
+	}
+
+	auto nested = parse_NestedExpression();
+	if (nested) {
+		return nested;
+	}
+
+	return nullptr;
+}
+
+std::unique_ptr<IntConst> Parser::parse_IntConst() {
+	if (is_one_of(token, TokenType::INTCONST)) {
+		auto value = *get_int(token);
+		auto position = token.position;
+		advance();
+		return make<IntConst>(position, value);
+	} else {
+		return nullptr;
+	}
+}
+
+std::unique_ptr<StringConst> Parser::parse_StringConst() {
+	if (is_one_of(token, TokenType::STRINGCONST)) {
+		auto value = *get_string(token);
+		auto position = token.position;
+		advance();
+		return make<StringConst>(position, value);
+	} else {
+		return nullptr;
+	}
+}
+
+std::unique_ptr<Expression> Parser::parse_FuncCallOrVariableRef() {
+	if (!is_one_of(token, TokenType::IDENTIFIER)) {
+		return nullptr;
+	}
+	std::wstring name = *get_string(token);
+	auto position = token.position;
+	advance();
+	auto func_call = parse_FunctionCall(position, name);
+	if (func_call) {
+		return func_call;
+	} else {
+		return make<VariableRef>(position, std::move(name));
+	}
+}
+
+std::unique_ptr<Expression> Parser::parse_NestedExpression() {
+	if (!is_one_of(token, TokenType::L_PAREN)) {
+		return nullptr;
+	}
+	advance();
+	auto expr = parse_ConditionalExpression();
+	eat(L"Expected closing paren `)` at the end of expression", TokenType::R_PAREN);
+	return expr;
+}
+
+
+std::unique_ptr<FunctionCall> Parser::parse_FunctionCall(const Position& position, std::wstring name) {
+	if (!is_one_of(token, TokenType::L_PAREN)) {
+		return nullptr;
+	}
+	advance();
+	auto arguments = parse_CallArgumentList();
+	eat(L"Expected closing paren `)` at the end of argument list", TokenType::R_PAREN);
+	return make<FunctionCall>(position, std::move(name), std::move(arguments));
+}
+
+std::list<std::unique_ptr<Expression>> Parser::parse_CallArgumentList() {
+	std::list<std::unique_ptr<Expression>> list;
+	auto node = parse_ArithmeticalExpr();
+	if (node) {
+		list.push_back(std::move(node));
+		while (is_one_of(token, TokenType::COMMA)) {
+			advance();
+			node = parse_ArithmeticalExpr();
+			if (!node) {
+				report_expected_expression();
+			}
+			list.push_back(std::move(node));
+		}
+	}
+	return list;
+}
+
+std::unique_ptr<Expression> Parser::parse_IndexExpression() {
+	if (!is_one_of(token, TokenType::LI_PAREN)) {
+		return nullptr;
+	}
+	advance();
+	auto index = parse_ArithmeticalExpr();
+	eat(L"Expected closing `]` paren to end indexing", TokenType::RI_PAREN);
+	return index;
+}
+
+std::unique_ptr<Statement> Parser::parse_Statement() {
+	auto for_stmt = parse_ForStatement();
+	if (for_stmt) {
+		return for_stmt;
+	}
+
+	auto while_stmt = parse_WhileStatement();
+	if (while_stmt) {
+		return while_stmt;
+	}
+
+	auto if_stmt = parse_IfStatement();
+	if (if_stmt) {
+		return if_stmt;
+	}
+
+	auto return_stmt = parse_ReturnSatetemnt();
+	if (return_stmt) {
+		return return_stmt;
+	}
+
+	auto var_decl = parse_VariableDecl();
+	if (var_decl) {
+		return var_decl;
+	}
+
+	auto assignment = parse_AssignStatement();
+	if (assignment) {
+		return assignment;
+	}
+
+	return nullptr;
+}
+
+std::unique_ptr<IfStatement> Parser::parse_IfStatement() {
+	if (!is_one_of(token, TokenType::KW_IF)) {
+		return nullptr;
+	}
+	advance();
+	
+	std::list<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Block>>> blocks;
+	blocks.push_back(parse_ConditionalBlock());
+
+	while (is_one_of(token, TokenType::KW_ELIF)) {
+		advance();
+		blocks.push_back(parse_ConditionalBlock());
+	}
+
+	std::optional<std::unique_ptr<Block>> else_statement;
+	if (is_one_of(token, TokenType::KW_ELSE)) {
+		advance();
+		auto block = parse_Block();
+		else_statement = std::move(block);
+	}
+	return make<IfStatement>(std::move(blocks), std::move(else_statement));
+}
+
+std::pair<std::unique_ptr<Expression>, std::unique_ptr<Block>> Parser::parse_ConditionalBlock() {
+	auto condition = parse_ConditionalExpression();
+	if (!condition) {
+		report_expected_expression();
+	}
+	auto block = parse_Block();
+	return std::make_pair(std::move(condition), std::move(block));
+}
+
+std::unique_ptr<ForStatement> Parser::parse_ForStatement() {
+	if (!is_one_of(token, TokenType::KW_FOR)) {
+		return nullptr;
+	}
+	advance();
+	expect(L"Expected loop's variable name", TokenType::IDENTIFIER);
+	std::wstring name = *get_string(token);
+	advance();
+	eat(L"Expected `in` keyword", TokenType::KW_IN);
+	auto [ start, end, increase ] = parse_Range();
+	auto block = parse_Block();
+	return make<ForStatement>(std::move(name), std::move(start), std::move(end), std::move(increase), std::move(block));
+}
+
+std::tuple<std::unique_ptr<Expression>, std::unique_ptr<Expression>, std::optional<std::unique_ptr<Expression>>> Parser::parse_Range() {
+	auto start = parse_ArithmeticalExpr();
+	if (!start) {
+		report_expected_expression();
+	}
+	eat(L"Expected range separator `..`", TokenType::RANGE_SEP);
+	auto end = parse_ArithmeticalExpr();
+	if (!end) {
+		report_expected_expression();
+	}
+	std::optional<std::unique_ptr<Expression>> increase;
+	if (is_one_of(token, TokenType::RANGE_SEP)) {
+		advance();
+		auto inc = parse_ArithmeticalExpr();
+		if (!inc) {
+			report_expected_expression();
+		}
+		increase = std::move(inc);
+	}
+	return std::make_tuple(std::move(start), std::move(end), std::move(increase));
+}
+
+std::unique_ptr<WhileStatement> Parser::parse_WhileStatement() {
+	if (!is_one_of(token, TokenType::KW_WHILE)) {
+		return nullptr;
+	}
+	advance();
+	auto [ expr, block ] = parse_ConditionalBlock();
+	return make<WhileStatement>(std::move(expr), std::move(block));
+}
+
+std::unique_ptr<ReturnStatement> Parser::parse_ReturnSatetemnt() {
+	if (!is_one_of(token, TokenType::KW_RETURN)) {
+		return nullptr;
+	}
+	auto expr = parse_ArithmeticalExpr();
+	eat(L"Expected semicolon `;` et the end of return statement", TokenType::SEMICOLON);
+	return make<ReturnStatement>(std::move(expr));
+}
+
+std::unique_ptr<Statement> Parser::parse_AssignStatement() {
+	auto expr = parse_ConditionalExpression();
+	if (!expr) {
+		return nullptr;
+	}
+	if (is_one_of(token, TokenType::SEMICOLON)) {
+		advance();
+		return make<ExpressionStatement>(std::move(expr));
+	}
+	std::list<std::unique_ptr<Expression>> parts;
+	parts.push_back(std::move(expr));
+	while (is_one_of(token, TokenType::ASSIGN)) {
+		advance();
+		expr = parse_ConditionalExpression();
+		if (!expr) {
+			report_expected_expression();
+		}
+		parts.push_back(std::move(expr));
+	}
+	eat(L"Expected semicolon `;` at the end of assignment expression", TokenType::SEMICOLON);
+	return make<AssignmentStatement>(std::move(parts));
+}
+
+void Parser::report_unexpected_token(const std::wstring& msg) {
+	throw ParserException {
+		concat(position_in_file(token), 
+			   L"\nError unexpected token\n", msg, L"\n Got `\033[31;1;4m", repr(token.type), L"\033[0m`\n")
 	};
 }
 
+void Parser::report_expected_expression() {
+	throw ParserException {
+		concat(position_in_file(token), 
+			L"\nExpected expression but got ", repr(token.type)
+		)
+	};
+}
+
+void Parser::report_invalid_type() {
+	throw ParserException {
+		concat(position_in_file(token),
+			L"Invalid type you can only use int, int* or string\n")
+	};
+}
+
+void Parser::report_expected_parameter() {
+	throw ParserException {
+		concat(position_in_file(token), 
+			L"Expected parameter declaration starting with name but got", repr(token.type)
+		)
+	};
+}
