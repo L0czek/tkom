@@ -560,31 +560,46 @@ std::unique_ptr<Statement> Parser::parse_AssignStatement() {
 }
 
 void Parser::report_unexpected_token(const std::wstring& msg) {
-	throw ParserException {
-		concat(position_in_file(token), 
-			   L"\nError unexpected token\n", msg, L"\n Got `\033[31;1;4m", repr(token.type), L"\033[0m`\n")
+	const auto position = token.position;
+    throw ParserException {
+        concat(position_in_file(position), L"\n In \n",
+            lexer->get_lines(position.line_number, position.line_number+1), L"\n",
+            error_marker(position), L"\n",
+			L"\nError unexpected token\n", msg, L"\n Got `\033[31;1;4m", repr(token.type), L"\033[0m`\n"
+        )
 	};
 }
 
 void Parser::report_expected_expression() {
-	throw ParserException {
-		concat(position_in_file(token), 
+	const auto position = token.position;
+    throw ParserException {
+        concat(position_in_file(position), L"\n In \n",
+            lexer->get_lines(position.line_number, position.line_number+1), L"\n",
+            error_marker(position), L"\n", 
 			L"\nExpected expression but got ", repr(token.type)
 		)
 	};
 }
 
 void Parser::report_invalid_type() const {
+	const auto position = token.position;
 	throw ParserException {
-		concat(position_in_file(token),
-			L"Invalid type you can only use int, int* or string\n")
+        concat(position_in_file(position), L"\n In \n",
+            lexer->get_lines(position.line_number, position.line_number+1), L"\n",
+            error_marker(position), L"\n",
+ 			L"Invalid type you can only use int, int* or string\n"
+        )
 	};
 }
 
 void Parser::report_expected_parameter() {
+	const auto position = token.position;
 	throw ParserException {
-		concat(position_in_file(token), 
+        concat(position_in_file(position), L"\n In \n",
+            lexer->get_lines(position.line_number, position.line_number+1), L"\n",
+            error_marker(position), L"\n",
 			L"Expected parameter declaration starting with name but got", repr(token.type)
 		)
 	};
 }
+

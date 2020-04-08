@@ -39,7 +39,14 @@ void Source::update_position(wchar_t ch) {
 }
 
 std::wstring Source::get_lines(std::size_t from, std::size_t to)  {
-    return input_between(line_position.at(from), line_position.at(to));
+    Position start = line_position.at(from);
+    Position end;
+    if (line_position.find(to) != line_position.end()) {
+        end = line_position.at(to);
+    } else {
+        end = current_position;
+    }
+    return input_between(start, end);
 }
 
 FileSource::FileSource(const std::string& path) : file(path, std::ios::in) {

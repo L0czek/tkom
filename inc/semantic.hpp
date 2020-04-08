@@ -74,7 +74,6 @@ private:
     template<typename ... Types>
     static std::wstring repr(ExprType first, Types&&... types);
     static std::wstring repr(ExprType type);
-    static std::wstring error_marker(const Position& pos);
     static const std::unordered_set<std::wstring> reserved_words;
 public:
     SemanticAnalyser(std::unique_ptr<Source> source) : source(std::move(source)) {}

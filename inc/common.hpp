@@ -4,6 +4,7 @@
 #include <string>
 #include <sstream>
 #include <tuple>
+#include <memory>
 
 template<typename ... StringElements>
 class StringBuilder {
@@ -39,5 +40,8 @@ template<typename Class, typename ... Elements>
 std::unique_ptr<Class> make(Elements&&... elements) {
     return std::make_unique<Class>( std::move(elements)... );
 }
+
+class Position;
+std::wstring error_marker(const Position& pos);
 
 #endif

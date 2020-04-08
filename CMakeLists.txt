@@ -16,9 +16,11 @@ add_library(Parser STATIC
         src/parser.cc
         src/node.cc
         src/print.cc
+        src/common.cc
     )
 add_library(Analyser STATIC
         src/semantic.cc
+        src/common.cc
     )
 add_executable(rc src/main.cc)
 
