@@ -531,6 +531,7 @@ std::unique_ptr<ReturnStatement> Parser::parse_ReturnSatetemnt() {
 	if (!is_one_of(token, TokenType::KW_RETURN)) {
 		return nullptr;
 	}
+    advance();
 	auto expr = parse_ArithmeticalExpr();
 	eat(L"Expected semicolon `;` et the end of return statement", TokenType::SEMICOLON);
 	return make<ReturnStatement>(std::move(expr));

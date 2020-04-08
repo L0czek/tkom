@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <memory>
+#include <optional>
 #include <algorithm>
 
 class SemanticAnalyser :public Visitor {
@@ -26,15 +27,25 @@ public:
     };
 private:
     
+    BuiltinType current_func_ret_type;
+
     struct Function {
         BuiltinType return_type;
         std::list<std::pair<std::wstring, BuiltinType>> parameters;
     };
 
     std::stack<std::pair<ExprType, Position>> stack;
+    std::stack<bool> has_return;
     std::deque<std::unordered_map<std::wstring, BuiltinType>> scopes;
     std::unordered_map<std::wstring, Function> functions;
-    
+   
+    void ignore_return(std::size_t depth);
+    void yield_return();
+    void yield_no_return();
+    void yield_return_all(std::size_t depth);
+    void yield_return_one(std::size_t depth);
+    void assert_returns(const Position& pos);
+
     template<typename Node>
     void analyse(const std::unique_ptr<Node>& node);
     template<typename ... Types>
@@ -58,6 +69,7 @@ private:
     BuiltinType var_from_scope(const std::wstring& name, const std::unordered_map<std::wstring, BuiltinType>& scope) const;
     const Function& function_from_name(const std::wstring& name, const Position& pos);
     void check_assignable_by(const std::unique_ptr<Expression>& expr, SemanticAnalyser::ExprType rhs); 
+    void check_assignable_by(BuiltinType type, const std::unique_ptr<Expression>& expr);
 
     template<typename ... Types>
     void report_bad_type(Types&&... allowed) const;
@@ -69,7 +81,7 @@ private:
     void report_variable_redeclaration(const std::wstring& name, const Position& pos) const;
     void report_function_redeclaration(const std::wstring& name, const Position& pos) const;
     void report_parameter_redeclaration(const std::wstring& name, const Position& pos) const;
-
+    void report_no_return(const Position& position) const;
 
     template<typename ... Types>
     static std::wstring repr(ExprType first, Types&&... types);

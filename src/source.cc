@@ -6,7 +6,7 @@
 
 Source::Source() {
     current_position.line_number = 1;
-    current_position.column_number = 1;
+    current_position.column_number = 0;
     line_position[1] = current_position;
 }
 
@@ -29,13 +29,13 @@ const Position& Source::get_position() const noexcept {
 }
 
 void Source::update_position(wchar_t ch) {
-    current_position.stream_position++;
-    current_position.column_number++;
     if (ch == L'\n') {
         current_position.line_number++;
-        current_position.column_number = 1;
+        current_position.column_number = 0;
         line_position[current_position.line_number] = current_position;
     }
+    current_position.column_number++;
+    current_position.stream_position++;
 }
 
 std::wstring Source::get_lines(std::size_t from, std::size_t to)  {
@@ -67,8 +67,8 @@ std::optional<wchar_t> FileSource::next() noexcept {
 }
 
 std::wstring FileSource::input_between(const Position& start, const Position& end) {
-    const auto st = start.stream_position - 1;
-    const auto en = end.stream_position - 1;
+    const auto st = start.stream_position ;
+    const auto en = end.stream_position ;
 
     if (st >= en) {
         return L"";
@@ -104,8 +104,8 @@ std::optional<wchar_t> StdInSource::next() noexcept {
 }
 
 std::wstring StdInSource::input_between(const Position& start, const Position& end) {
-    const auto st = start.stream_position - 1;
-    const auto en = end.stream_position - 1;
+    const auto st = start.stream_position ;
+    const auto en = end.stream_position ;
 
     if (st >= en) {
         return L"";
@@ -134,8 +134,8 @@ std::optional<wchar_t> StringSource::next() noexcept {
 }
 
 std::wstring StringSource::input_between(const Position& start, const Position& end) {
-    const auto st = start.stream_position - 1;
-    const auto en = end.stream_position - 1;
+    const auto st = start.stream_position ;
+    const auto en = end.stream_position ;
 
     if (st >= en) {
         return L"";

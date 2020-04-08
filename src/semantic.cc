@@ -1,4 +1,9 @@
 #include "semantic.hpp" 
+#include <cassert>
+
+#define ASSERT_EMPTY_STACK assert(stack.empty())
+#define ASSERT_EMPTY_SCOPE assert(scopes.empty())
+#define ASSERT_EMPTY_RET_STACK assert(has_return.empty())
 
 void analyse(const std::unique_ptr<Program>& program, std::unique_ptr<Source> source) {
     SemanticAnalyser analyser{std::move(source)};
@@ -205,6 +210,7 @@ void SemanticAnalyser::visit(const Block& block) {
         analyse(stmt);
     }
     leave();
+    yield_return_one(block.statements.size());
 }
 
 void SemanticAnalyser::visit(const FunctionDecl& func) {
@@ -226,16 +232,40 @@ void SemanticAnalyser::visit(const FunctionDecl& func) {
         declaration.parameters.push_back(std::make_pair(param.name, param.type));
     }
     functions.insert(std::make_pair(func.func_name, declaration)); // To enable recursion
+    current_func_ret_type = func.return_type;
     analyse(func.block);
+    assert_returns(func.position());
     leave();
+
+    ASSERT_EMPTY_RET_STACK;
 }
 
 void SemanticAnalyser::visit(const VariableDecl& stmt) {
     for (const auto &var : stmt.var_decls) {
         declare_var(var);
         if (var.initial_value) {
-            analyse(*var.initial_value);
+           check_assignable_by(var.type, *var.initial_value);         
         }
+    }
+    yield_no_return();
+}
+
+void SemanticAnalyser::check_assignable_by(BuiltinType type, const std::unique_ptr<Expression>& expr) {
+    analyse(expr);
+
+    switch (type) {
+        case BuiltinType::Int: 
+            require(SemanticAnalyser::ExprType::Int, 
+                    SemanticAnalyser::ExprType::IntReference); 
+            break;
+        case BuiltinType::IntPointer: 
+            require(SemanticAnalyser::ExprType::IntPointer, 
+                    SemanticAnalyser::ExprType::IntPointerReference); 
+            break;
+        case BuiltinType::String: 
+            require(SemanticAnalyser::ExprType::String, 
+                    SemanticAnalyser::ExprType::StringReference); 
+            break;
     }
 }
 
@@ -264,21 +294,24 @@ void SemanticAnalyser::visit(const AssignmentStatement& stmt) {
         check_assignable_by(*it, value_type);
         std::advance(it, 1);
     }
+    yield_no_return();
+
+    ASSERT_EMPTY_STACK;
 }
 
 void SemanticAnalyser::visit(const ReturnStatement& stmt) {
-    analyse(stmt.expr);
-    require(SemanticAnalyser::ExprType::Int, 
-            SemanticAnalyser::ExprType::IntReference, 
-            SemanticAnalyser::ExprType::String, 
-            SemanticAnalyser::ExprType::StringReference, 
-            SemanticAnalyser::ExprType::IntPointer, 
-            SemanticAnalyser::ExprType::IntPointerReference);
+    check_assignable_by(current_func_ret_type, stmt.expr);
+    yield_return();
+    
+    ASSERT_EMPTY_STACK;
 }
 
 void SemanticAnalyser::visit(const ExpressionStatement& stmt) {
     analyse(stmt.expr);
     ignore();
+    yield_no_return();
+
+    ASSERT_EMPTY_STACK;
 }
 
 void SemanticAnalyser::visit(const IfStatement& stmt) {
@@ -290,7 +323,14 @@ void SemanticAnalyser::visit(const IfStatement& stmt) {
     }
     if (stmt.else_statement) {
         analyse(*stmt.else_statement);
+        yield_return_all(stmt.blocks.size()+1); 
+    } else {
+        ignore_return(stmt.blocks.size());
+        yield_no_return();
     }
+    
+
+    ASSERT_EMPTY_STACK;
 }
 
 void SemanticAnalyser::visit(const ForStatement& stmt) {
@@ -308,6 +348,8 @@ void SemanticAnalyser::visit(const ForStatement& stmt) {
     scopes.back().insert(std::make_pair(stmt.loop_variable, BuiltinType::Int));
     analyse(stmt.block);
     leave();
+
+    ASSERT_EMPTY_STACK;
 }
 
 void SemanticAnalyser::visit(const WhileStatement& stmt) {
@@ -315,6 +357,8 @@ void SemanticAnalyser::visit(const WhileStatement& stmt) {
     require(SemanticAnalyser::ExprType::Bool, SemanticAnalyser::ExprType::Int, SemanticAnalyser::ExprType::IntReference);
 
     analyse(stmt.block);
+    
+    ASSERT_EMPTY_STACK;
 }
 
 void SemanticAnalyser::visit(const Program& program) {
@@ -326,6 +370,9 @@ void SemanticAnalyser::visit(const Program& program) {
         analyse(function);
     }
     leave();
+    
+    ASSERT_EMPTY_STACK;
+    ASSERT_EMPTY_SCOPE;
 }
 
 std::wstring SemanticAnalyser::repr(SemanticAnalyser::ExprType type) {
@@ -338,6 +385,49 @@ std::wstring SemanticAnalyser::repr(SemanticAnalyser::ExprType type) {
         case SemanticAnalyser::ExprType::StringReference: return L"reference to a string variable";
         case SemanticAnalyser::ExprType::Bool: return L"boolean value";
     }
+}
+
+void SemanticAnalyser::yield_return() {
+    has_return.push(true);
+}
+
+void SemanticAnalyser::yield_no_return() {
+    has_return.push(false);
+}
+
+void SemanticAnalyser::ignore_return(std::size_t depth) {
+    for (std::size_t i=0; i < depth; ++i) {
+        has_return.pop();
+    }
+}
+
+void SemanticAnalyser::yield_return_all(std::size_t depth) {
+    if (depth == 0) {
+        has_return.push(false);
+    } else {
+        bool conjunction = true;
+        for (std::size_t i=0; i < depth; ++i) {
+            conjunction &= has_return.top();
+            has_return.pop();
+        }
+        has_return.push(conjunction);
+    }
+}
+
+void SemanticAnalyser::yield_return_one(std::size_t depth) {
+    bool disjunction = false;
+    for (std::size_t i=0; i < depth; ++i) {
+        disjunction |= has_return.top();
+        has_return.pop();
+    }
+    has_return.push(disjunction);
+}
+
+void SemanticAnalyser::assert_returns(const Position& pos) {
+    if (!has_return.top()) {
+        report_no_return(pos);
+    }
+    has_return.pop();
 }
 
 void SemanticAnalyser::report_reserved_word(const std::wstring& word, const Position& position) const {
@@ -397,6 +487,16 @@ void SemanticAnalyser::report_undefined_function(const std::wstring& name, const
                 source->get_lines(position.line_number, position.line_number+1), L"\n",
                 error_marker(position), L"\n\n",
                 L"Error undefiend funtion with name = `", name, L"`."    
+            )
+    };
+}
+
+void SemanticAnalyser::report_no_return(const Position& position) const {
+    throw SemanticException {
+            concat(position_in_file(position), L"\n In \n",
+                source->get_lines(position.line_number, position.line_number+1), L"\n",
+                error_marker(position), L"\n\n",
+                L"Not all paths end with return statement."    
             )
     };
 }
