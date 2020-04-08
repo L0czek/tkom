@@ -57,8 +57,8 @@ void PrintVisitor::visit(const Block& target) {
 
 void PrintVisitor::visit(const FunctionDecl& target) {
 	str = concat(make_identation(ident), L"[ make function name = `", target.func_name, L"`; return type = `", repr(target.return_type), L"`; args = {\n");
-	for (const auto &i : target.arguments) {
-		str += concat(make_identation(ident + 2), L"name = `", i.first, L"`; type = `", repr(i.second), L"`,\n");
+	for (const auto &i : target.parameters) {
+		str += concat(make_identation(ident + 2), L"name = `", i.name, L"`; type = `", repr(i.type), L"`,\n");
 	}
 	str += make_identation(ident+1) + L"}\n";
 	str += make_identation(ident+1) + L"with body = {\n";

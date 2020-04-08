@@ -7,6 +7,10 @@ std::unique_ptr<Lexer> Parser::attach_lexer(std::unique_ptr<Lexer> lex) noexcept
 	return tmp;
 }
 
+std::unique_ptr<Lexer> Parser::detach_lexer() noexcept {
+    return std::move(lexer);
+}
+
 void Parser::advance() noexcept {
 	token = lexer->next();
 }
@@ -48,7 +52,8 @@ std::unique_ptr<FunctionDecl> Parser::parse_FunctionDecl() {
 	if (!is_one_of(token, TokenType::KW_FN)) {
 		return nullptr;
 	}
-	advance();
+	const Position position = token.position;
+    advance();
 
 	expect(L"Expected function name", TokenType::IDENTIFIER);
 	std::wstring name = *get_string(token);
@@ -62,7 +67,7 @@ std::unique_ptr<FunctionDecl> Parser::parse_FunctionDecl() {
 	auto type = parse_Type();
 	auto block = parse_Block();
 
-	return make<FunctionDecl>(std::move(name), type, std::move(parameters), std::move(block));
+	return make<FunctionDecl>(position, std::move(name), type, std::move(parameters), std::move(block));
 }
 
 std::unique_ptr<VariableDecl> Parser::parse_VariableDecl() {
@@ -95,7 +100,8 @@ VariableDecl::SingleVarDecl Parser::parse_SingleVarDecl() {
 
 	expect(L"Expected variable name", TokenType::IDENTIFIER);
 	var.name = *get_string(token);
-	advance();
+	var.pos = token.position; 
+    advance();
 
 	if (is_one_of(token, TokenType::ASSIGN)) {
 		advance();
@@ -128,8 +134,8 @@ BuiltinType Parser::parse_Type() {
 	}
 }
 
-std::list<std::pair<std::wstring, BuiltinType>> Parser::parse_ParameterList() {
-	std::list<std::pair<std::wstring, BuiltinType>> list;
+std::list<FunctionDecl::Parameter> Parser::parse_ParameterList() {
+	std::list<FunctionDecl::Parameter> list;
 	auto param = parse_SingleParameter();
 	if (!param) {
 		return {};
@@ -149,15 +155,16 @@ std::list<std::pair<std::wstring, BuiltinType>> Parser::parse_ParameterList() {
 	return list;
 }
 
-std::optional<std::pair<std::wstring, BuiltinType>> Parser::parse_SingleParameter() {
+std::optional<FunctionDecl::Parameter> Parser::parse_SingleParameter() {
 	if (!is_one_of(token, TokenType::IDENTIFIER)) {
 		return {};
 	}
 	std::wstring name = *get_string(token);
+    const Position pos = token.position;
 	advance();
 	eat(L"Expected type declaration token `:`", TokenType::COLON);
 	auto type = parse_Type();
-	return std::make_pair(std::move(name), type);
+	return FunctionDecl::Parameter{std::move(name), type, pos};
 }
 
 std::unique_ptr<Block> Parser::parse_Block() {
@@ -481,11 +488,12 @@ std::unique_ptr<ForStatement> Parser::parse_ForStatement() {
 	advance();
 	expect(L"Expected loop's variable name", TokenType::IDENTIFIER);
 	std::wstring name = *get_string(token);
-	advance();
+	const auto pos = token.position;
+    advance();
 	eat(L"Expected `in` keyword", TokenType::KW_IN);
 	auto [ start, end, increase ] = parse_Range();
 	auto block = parse_Block();
-	return make<ForStatement>(std::move(name), std::move(start), std::move(end), std::move(increase), std::move(block));
+	return make<ForStatement>(std::move(name), pos, std::move(start), std::move(end), std::move(increase), std::move(block));
 }
 
 std::tuple<std::unique_ptr<Expression>, std::unique_ptr<Expression>, std::optional<std::unique_ptr<Expression>>> Parser::parse_Range() {
@@ -566,7 +574,7 @@ void Parser::report_expected_expression() {
 	};
 }
 
-void Parser::report_invalid_type() {
+void Parser::report_invalid_type() const {
 	throw ParserException {
 		concat(position_in_file(token),
 			L"Invalid type you can only use int, int* or string\n")

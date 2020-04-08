@@ -109,6 +109,10 @@ Token make_token(TokenType type, const Position& position);
 Token make_token(TokenType type, const Position& position, int value);
 Token make_token(TokenType type, const Position& position, std::wstring value);
 
+std::wstring position_in_file(const Token& token);
+std::wstring position_in_file(const Position& position);
+
 std::wstring repr(const Token& token);
+std::wstring repr(TokenType type);
 
 #endif

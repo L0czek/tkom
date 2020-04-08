@@ -12,7 +12,7 @@ std::unique_ptr<Lexer> Lexer::from_source(std::unique_ptr<Source> source) {
     return std::make_unique<Lexer>( std::move(source) );
 }
 
-std::wstring get_lines(std::size_t from, std::size_t to) {
+std::wstring Lexer::get_lines(std::size_t from, std::size_t to) {
     return source->get_lines(from, to);
 }
 

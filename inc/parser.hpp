@@ -16,8 +16,8 @@ class Parser {
     std::unique_ptr<VariableDecl> parse_VariableDecl();
     VariableDecl::SingleVarDecl parse_SingleVarDecl();
     BuiltinType parse_Type();
-    std::list<std::pair<std::wstring, BuiltinType>> parse_ParameterList();
-    std::optional<std::pair<std::wstring, BuiltinType>> parse_SingleParameter();
+    std::list<FunctionDecl::Parameter> parse_ParameterList();
+    std::optional<FunctionDecl::Parameter> parse_SingleParameter();
     std::unique_ptr<Block> parse_Block();
 
     std::unique_ptr<Expression> parse_ConditionalExpression();
@@ -52,7 +52,7 @@ class Parser {
     
     void report_unexpected_token(const std::wstring& msg);
     void report_expected_expression();
-    void report_invalid_type();
+    void report_invalid_type() const;
     void report_expected_parameter();
 
     void report_error(const Position& start, const Position& end, const std::wstring& error_msg);
@@ -66,7 +66,7 @@ public:
     Parser() = default;
 
     std::unique_ptr<Lexer> attach_lexer(std::unique_ptr<Lexer> lex) noexcept;
-    
+    std::unique_ptr<Lexer> detach_lexer() noexcept; 
     std::unique_ptr<ASTNode> parse();
 };
 

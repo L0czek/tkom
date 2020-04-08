@@ -142,21 +142,31 @@ public:
 };
 
 struct FunctionDecl :public Statement {
+    Position pos;
     std::wstring func_name;
     BuiltinType return_type;
-    std::list<std::pair<std::wstring, BuiltinType>> arguments;
+    struct Parameter {
+        std::wstring name;
+        BuiltinType type;
+        Position pos;
+        const Position& position() const { return pos; }
+    };
+    std::list<Parameter> parameters;
     std::unique_ptr<Block> block;
 public:
-    FunctionDecl(std::wstring func_name, BuiltinType return_type, std::list<std::pair<std::wstring, BuiltinType>> arguments, std::unique_ptr<Block> block)
-    : func_name(std::move(func_name)), return_type(return_type), arguments(std::move(arguments)), block(std::move(block)) {}
+    FunctionDecl(const Position& position, std::wstring func_name, BuiltinType return_type, std::list<Parameter> params, std::unique_ptr<Block> block)
+    : pos(position), func_name(std::move(func_name)), return_type(return_type), parameters(std::move(params)), block(std::move(block)) {}
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
+    const Position& position() const { return pos; } 
 };
 
 struct VariableDecl :public Statement {
     struct SingleVarDecl {
+        Position pos;
         std::wstring name;
         BuiltinType type;
         std::optional<std::unique_ptr<Expression>> initial_value;
+        const Position& position() const { return pos; }
     };
 
     std::list<SingleVarDecl> var_decls;
@@ -204,13 +214,14 @@ public:
 
 struct ForStatement :public Statement {
     std::wstring loop_variable;
+    Position loop_variable_pos;
     std::unique_ptr<Expression> start;
     std::unique_ptr<Expression> end;
     std::optional<std::unique_ptr<Expression>> increase;
     std::unique_ptr<Block> block;
 public:
-    ForStatement(std::wstring loop_variable, std::unique_ptr<Expression> start, std::unique_ptr<Expression> end, std::optional<std::unique_ptr<Expression>> increase,std::unique_ptr<Block> block)
-    : loop_variable(std::move(loop_variable)), start(std::move(start)), end(std::move(end)), increase(std::move(increase)), block(std::move(block)) {}
+    ForStatement(std::wstring loop_variable, const Position& loop_variable_pos, std::unique_ptr<Expression> start, std::unique_ptr<Expression> end, std::optional<std::unique_ptr<Expression>> increase,std::unique_ptr<Block> block)
+    : loop_variable(std::move(loop_variable)), loop_variable_pos(loop_variable_pos), start(std::move(start)), end(std::move(end)), increase(std::move(increase)), block(std::move(block)) {}
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };
 

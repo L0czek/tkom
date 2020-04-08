@@ -7,7 +7,7 @@
 Source::Source() {
     current_position.line_number = 1;
     current_position.column_number = 1;
-    line_position[1] = 1;
+    line_position[1] = current_position;
 }
 
 Source::~Source() {
@@ -39,7 +39,7 @@ void Source::update_position(wchar_t ch) {
 }
 
 std::wstring Source::get_lines(std::size_t from, std::size_t to)  {
-    return input_between(line_positions->at(from), line_positions->at(to));
+    return input_between(line_position.at(from), line_position.at(to));
 }
 
 FileSource::FileSource(const std::string& path) : file(path, std::ios::in) {
