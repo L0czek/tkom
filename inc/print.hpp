@@ -28,6 +28,7 @@ public:
 	void visit(const ForStatement& ) override;
 	void visit(const WhileStatement& ) override;
 	void visit(const Program& ) override;
+    void visit(const ExternFunctionDecl& ) override;
 
 	std::wstring result();
 };

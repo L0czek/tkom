@@ -68,6 +68,7 @@ enum class TokenType {
     KW_ELIF,
     KW_RETURN,
     KW_LET,
+    KW_EXTERN,
 
     INVALID = 0x1'000
 };

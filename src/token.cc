@@ -127,6 +127,7 @@ std::wstring repr(const Token& token) {
         case TokenType::KW_RETURN:      return concat(to_wstring(token.position), L"TOKEN(KW_RETURN)");        break;
         case TokenType::KW_LET:         return concat(to_wstring(token.position), L"TOKEN(KW_LET)");           break;
         case TokenType::INVALID:        return concat(to_wstring(token.position), L"TOKEN(INVALID)");          break;
+        case TokenType::KW_EXTERN:      return concat(to_wstring(token.position), L"TOKEN(EXTERN)");           break;
         default: return L"No such token";
     }
 }

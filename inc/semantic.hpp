@@ -71,6 +71,7 @@ private:
     const Function& function_from_name(const std::wstring& name, const Position& pos);
     void check_assignable_by(const std::unique_ptr<Expression>& expr, SemanticAnalyser::ExprType rhs); 
     void check_assignable_by(BuiltinType type, const std::unique_ptr<Expression>& expr);
+    void check_main_function(const FunctionDecl& decl);
 
     template<typename ... Types>
     void report_bad_type(Types&&... allowed) const;
@@ -83,6 +84,8 @@ private:
     void report_function_redeclaration(const std::wstring& name, const Position& pos) const;
     void report_parameter_redeclaration(const std::wstring& name, const Position& pos) const;
     void report_no_return(const Position& position) const;
+    void report_main_bad_params(const Position& pos) const;
+    void report_main_bad_return_type(const Position& pos) const;
 
     template<typename ... Types>
     static std::wstring repr(ExprType first, Types&&... types);
@@ -107,6 +110,7 @@ public:
 	void visit(const ForStatement& ) override;
 	void visit(const WhileStatement& ) override;
 	void visit(const Program& ) override;
+    void visit(const ExternFunctionDecl& ) override;
 };
 
 void analyse(const std::unique_ptr<Program>& program, std::unique_ptr<Source> source);

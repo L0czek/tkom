@@ -12,6 +12,7 @@ class Parser {
     Token token;
 
     std::unique_ptr<Program> parse_Program();
+    std::unique_ptr<ExternFunctionDecl> parse_ExternFunctionDecl();
     std::unique_ptr<FunctionDecl> parse_FunctionDecl();
     std::unique_ptr<VariableDecl> parse_VariableDecl();
     VariableDecl::SingleVarDecl parse_SingleVarDecl();

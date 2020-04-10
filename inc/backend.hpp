@@ -23,7 +23,7 @@ extern std::string default_target_triple;
 
 class LLVMCompiler :public Visitor {
     static llvm::LLVMContext ctx;
-    llvm::Module module;
+    std::unique_ptr<llvm::Module> module;
     llvm::IRBuilder<> builder;
     std::string data_layout_str;
     std::string target_triple;
@@ -35,6 +35,7 @@ class LLVMCompiler :public Visitor {
         llvm::Function* llvm_ptr;
     };
     llvm::Function* current_function = nullptr;
+    llvm::Function* entrypoint_function = nullptr;
 
     struct Variable {
         llvm::Type* type;
@@ -44,7 +45,7 @@ class LLVMCompiler :public Visitor {
     std::stack<std::pair<lazyValue<llvm::Value*>, lazyValue<llvm::Value*>>> expressions;
     std::deque<std::unordered_map<std::wstring, Variable>> scopes;
     std::unordered_map<std::wstring, Function> functions;
-    std::unordered_map<std::wstring, llvm::GlobalVariable*> global_vars;
+    std::unordered_map<std::wstring, Variable> global_vars;
     
     void enter();
     void leave();
@@ -78,11 +79,14 @@ class LLVMCompiler :public Visitor {
 
     void process_parameters(const std::list<FunctionDecl::Parameter>& parameters, llvm::Function* function);
     void optimize();
+    void compile_entrypoint(const std::list<std::unique_ptr<VariableDecl>>& global_vars_decl);
+    void initialize_variables(const std::unique_ptr<VariableDecl>& decl);
+    llvm::Value* convert_to_bool(llvm::Value* expr);
+
+    void report_undefined_main();
 public:
+    LLVMCompiler(const LLVMCompiler&) = delete;
     LLVMCompiler(const std::string& target, const std::string& data_layout);
-    ~LLVMCompiler() {
-        
-    }
 
 	void visit(const UnaryExpression& ) override;
 	void visit(const BinaryExpression& ) override;
@@ -101,13 +105,27 @@ public:
 	void visit(const ForStatement& ) override;
 	void visit(const WhileStatement& ) override;
 	void visit(const Program& ) override;
+    void visit(const ExternFunctionDecl& ) override;
+
+    void save_ir(const std::string& path);
+    void save_bc(const std::string& path);
+    void print_ir();
+    int execute();
 };
 
-std::wstring compile(
+std::unique_ptr<LLVMCompiler> compile(
         const std::unique_ptr<Program>& program, 
         const std::string& target = default_target_triple, 
         const std::string& data_layout = default_data_layout
     );
+
+class CompilerException :public std::runtime_error {
+    std::wstring msg;
+public:
+    CompilerException(const std::wstring& wstr) :msg(wstr), std::runtime_error("CompilerException") {}
+    const std::wstring& message() const noexcept { return msg; }
+    const char* what() const noexcept override { return to_ascii_string(msg).c_str(); }
+};
 
 template<typename Node>
 void LLVMCompiler::compile(const std::unique_ptr<Node>& node) {

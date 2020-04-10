@@ -39,7 +39,7 @@ add_library(Common STATIC
 
 add_executable(rc src/main.cc)
 
-llvm_map_components_to_libnames(llvm_libs support core irreader scalaropts)
+llvm_map_components_to_libnames(llvm_libs support core irreader scalaropts bitwriter executionengine target x86info x86desc x86utils)
 target_link_libraries(Parser Common)
 target_link_libraries(Analyser Common)
 target_link_libraries(LLVMBackend ${llvm_libs})

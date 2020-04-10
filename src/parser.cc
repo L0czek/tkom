@@ -13,7 +13,6 @@ std::unique_ptr<Lexer> Parser::detach_lexer() noexcept {
 
 void Parser::advance() noexcept {
 	token = lexer->next();
-    std::wcout<<repr(token)<<L"\n";
 }
 
 BuiltinType Parser::get_builtin_type(const std::wstring& wstr) const {
@@ -29,24 +28,53 @@ BuiltinType Parser::get_builtin_type(const std::wstring& wstr) const {
 std::unique_ptr<Program> Parser::parse_Program() {
 	std::list<std::unique_ptr<VariableDecl>> global_vars;
     std::list<std::unique_ptr<FunctionDecl>> functions;
+    std::list<std::unique_ptr<ExternFunctionDecl>> externs;
 
     auto function = parse_FunctionDecl();
     auto variable = parse_VariableDecl();
+    auto extern_func = parse_ExternFunctionDecl();
 
-    while (function || variable) {
+    while (function || variable || extern_func) {
     	if (function) {
     		functions.push_back(std::move(function));
     	}
     	if (variable) {
     		global_vars.push_back(std::move(variable));
     	}
+        if (extern_func) {
+            externs.push_back(std::move(extern_func));
+        }
     	function = parse_FunctionDecl();
     	variable = parse_VariableDecl();
+        extern_func = parse_ExternFunctionDecl();
     }
 
     expect(L"Expected function `fn` declaration or variable `let` definition token", TokenType::END_OF_FILE);
 
-    return make<Program>(std::move(global_vars), std::move(functions));
+    return make<Program>(std::move(global_vars), std::move(functions), std::move(externs));
+}
+
+std::unique_ptr<ExternFunctionDecl> Parser::parse_ExternFunctionDecl() {
+    if (!is_one_of(token, TokenType::KW_EXTERN)) {
+        return nullptr;
+    }
+    const Position position = token.position;
+    advance();
+
+    eat(L"Expected `fn` keyword", TokenType::KW_FN);
+    expect(L"Expected function name", TokenType::IDENTIFIER);
+    std::wstring name = *get_string(token);
+    advance();
+
+	eat(L"Expected openning paren `(`", TokenType::L_PAREN);
+	auto parameters = parse_ParameterList();
+	eat(L"Expected closing paren `)`", TokenType::R_PAREN);
+	
+	eat(L"Expected type declaration `->` token", TokenType::TYPE_DECL);
+	auto type = parse_Type();
+    eat(L"Expected `;` after extern function declaration", TokenType::SEMICOLON);
+
+    return make<ExternFunctionDecl>(position, std::move(name), type, std::move(parameters));
 }
 
 std::unique_ptr<FunctionDecl> Parser::parse_FunctionDecl() {

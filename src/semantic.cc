@@ -222,8 +222,44 @@ void SemanticAnalyser::visit(const Block& block) {
     yield_return_one(block.statements.size());
 }
 
+void SemanticAnalyser::visit(const ExternFunctionDecl& func) {
+    check_id(func.func_name, func.position());
+    if (functions.find(func.func_name) != functions.end()) {
+        report_function_redeclaration(func.func_name, func.position());
+    }
+
+    enter();
+    for (const auto & param : func.parameters) {
+        if (is_in_scope(param.name, scopes.back())) {
+            report_parameter_redeclaration(param.name, param.position());
+        }
+        scopes.back().insert(std::make_pair(param.name, param.type));
+    }
+    Function declaration;
+    declaration.return_type = func.return_type;
+    for (const auto & param : func.parameters) {
+        declaration.parameters.push_back(std::make_pair(param.name, param.type));
+    }
+    functions.insert(std::make_pair(func.func_name, declaration)); // To enable recursion
+    leave();
+
+    ASSERT_EMPTY_RET_STACK;
+}
+
+void SemanticAnalyser::check_main_function(const FunctionDecl& decl) {
+    if (decl.func_name == L"main") {
+        if (decl.parameters.size() != 0) {
+            report_main_bad_params(decl.parameters.front().position());
+        }
+        if (decl.return_type != BuiltinType::Int) {
+            report_main_bad_return_type(decl.position());
+        }
+    }
+}
+
 void SemanticAnalyser::visit(const FunctionDecl& func) {
     check_id(func.func_name, func.position());
+    check_main_function(func);
     if (functions.find(func.func_name) != functions.end()) {
         report_function_redeclaration(func.func_name, func.position());
     }
@@ -372,6 +408,9 @@ void SemanticAnalyser::visit(const WhileStatement& stmt) {
 
 void SemanticAnalyser::visit(const Program& program) {
     enter();
+    for (const auto & extern_func : program.externs) {
+        analyse(extern_func);
+    }
     for (const auto & var : program.global_vars) {
         analyse(var);
     }
@@ -519,6 +558,27 @@ void SemanticAnalyser::report_argument_number_mismatch(std::size_t expected, std
                 L"Wrong number of arguments, expected `", std::to_wstring(expected), L"` but got`", std::to_wstring(got),L"`."    
             )
     };
+}
+
+void SemanticAnalyser::report_main_bad_params(const Position& position) const {
+    throw SemanticException {
+            concat(position_in_file(position), L"\n In \n",
+                source->get_lines(position.line_number, position.line_number+1), L"\n",
+                error_marker(position), L"\n\n",
+                L"Main function should take no parameters (for now...) due to author laziness"    
+            )
+    };
+}
+
+void SemanticAnalyser::report_main_bad_return_type(const Position& position) const {
+    throw SemanticException {
+            concat(position_in_file(position), L"\n In \n",
+                source->get_lines(position.line_number, position.line_number+1), L"\n",
+                error_marker(position), L"\n\n",
+                L"Main function should return Int"    
+            )
+    };
+
 }
 
 const std::unordered_set<std::wstring> SemanticAnalyser::reserved_words = {

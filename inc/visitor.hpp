@@ -18,6 +18,7 @@ class IfStatement;
 class ForStatement;
 class WhileStatement;
 class Program;
+class ExternFunctionDecl;
 
 class Visitor {
 public:
@@ -38,6 +39,7 @@ public:
 	virtual void visit(const ForStatement& ) =0;
 	virtual void visit(const WhileStatement& ) =0;
 	virtual void visit(const Program& ) =0;
+    virtual void visit(const ExternFunctionDecl&) =0;
 };
 
 #endif

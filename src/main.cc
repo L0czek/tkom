@@ -16,12 +16,15 @@ int main() {
         auto ast = parser.parse_Program();
         PrintVisitor visitor{};
         ast->accept(visitor);
-        std::wcout << visitor.result() << L"\n";
+        //std::wcout << visitor.result() << L"\n";
         lexer = parser.detach_lexer();
         auto source = lexer->change_source(nullptr);
         analyse(ast, std::move(source));
         std::wcout.flush();
-        compile(ast);
+        auto compiler = compile(ast);
+        compiler->save_ir("out.ll");
+        compiler->save_bc("out.bc");
+        compiler->print_ir();
         int a = 1;
     
     } catch (LexerException e) {

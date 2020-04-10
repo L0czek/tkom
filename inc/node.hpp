@@ -141,16 +141,30 @@ public:
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };
 
+struct ParameterDef {
+    std::wstring name;
+    BuiltinType type;
+    Position pos;
+    const Position& position() const { return pos; }
+};
+
+struct ExternFunctionDecl :public Statement {
+    Position pos;
+    std::wstring func_name;
+    typedef ParameterDef Parameter;
+    BuiltinType return_type;
+    std::list<Parameter> parameters;
+    ExternFunctionDecl(const Position& pos, std::wstring name, BuiltinType return_type, std::list<Parameter> parameters)
+    : pos(pos), func_name(std::move(name)), return_type(return_type), parameters(parameters) {}
+    const Position& position() const { return pos; }
+    void accept(Visitor& visitor) const override { visitor.visit(*this); }    
+};
+
 struct FunctionDecl :public Statement {
     Position pos;
     std::wstring func_name;
     BuiltinType return_type;
-    struct Parameter {
-        std::wstring name;
-        BuiltinType type;
-        Position pos;
-        const Position& position() const { return pos; }
-    };
+    typedef ParameterDef Parameter;
     std::list<Parameter> parameters;
     std::unique_ptr<Block> block;
 public:
@@ -237,9 +251,10 @@ public:
 struct Program :public ASTNode {
     std::list<std::unique_ptr<VariableDecl>> global_vars;
     std::list<std::unique_ptr<FunctionDecl>> functions;
+    std::list<std::unique_ptr<ExternFunctionDecl>> externs;
 public:
-    Program(std::list<std::unique_ptr<VariableDecl>> global_vars, std::list<std::unique_ptr<FunctionDecl>> functions)
-    : global_vars(std::move(global_vars)), functions(std::move(functions)) {}
+    Program(std::list<std::unique_ptr<VariableDecl>> global_vars, std::list<std::unique_ptr<FunctionDecl>> functions, std::list<std::unique_ptr<ExternFunctionDecl>> externs)
+    : global_vars(std::move(global_vars)), functions(std::move(functions)), externs(std::move(externs)) {}
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };
 

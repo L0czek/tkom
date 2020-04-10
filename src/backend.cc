@@ -3,31 +3,60 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/Support/TargetSelect.h"
 
 llvm::LLVMContext LLVMCompiler::ctx;
 
-std::wstring compile(const std::unique_ptr<Program>& program, const std::string& target, const std::string& data_layout) {
-    LLVMCompiler compiler{target, data_layout};
-    program->accept(compiler);
-    return L"";
+std::unique_ptr<LLVMCompiler> compile(
+        const std::unique_ptr<Program>& program, 
+        const std::string& target, 
+        const std::string& data_layout
+    ) {
+    auto compiler = std::make_unique<LLVMCompiler>(target, data_layout);
+    program->accept(*compiler);
+    return std::move(compiler);
 }
 
 LLVMCompiler::LLVMCompiler(const std::string& target, const std::string& data_layout)
-: module("top", ctx), builder(ctx), data_layout_str(data_layout), target_triple(target), data_layout(data_layout_str) {
-   module.setTargetTriple(target_triple);
-   module.setDataLayout(data_layout);
+: module(std::make_unique<llvm::Module>("top", ctx)), builder(ctx), data_layout_str(data_layout), target_triple(target), data_layout(data_layout_str) {
+   module->setTargetTriple(target_triple);
+   module->setDataLayout(data_layout);
 } 
+
+void LLVMCompiler::save_ir(const std::string& path) {
+    std::error_code ec;
+    llvm::raw_fd_ostream fd(path, ec, llvm::sys::fs::F_None);
+    fd << *module;
+}
+
+void LLVMCompiler::save_bc(const std::string& path) {
+    std::error_code ec;
+    llvm::raw_fd_ostream fd(path, ec, llvm::sys::fs::F_None);
+    llvm::WriteBitcodeToFile(*module, fd);
+}
+
+void LLVMCompiler::print_ir() {
+    module->print(llvm::outs(), nullptr);
+}
+
+int LLVMCompiler::execute() {
+    }
 
 void LLVMCompiler::declare_global_var(const std::wstring& name, BuiltinType type) {
     auto llvm_type = from_builtin_type(type);
     auto var = new llvm::GlobalVariable (
-                module,
+                *module,
                 llvm_type,
                 false,
                 llvm::GlobalValue::CommonLinkage,
                 llvm::Constant::getNullValue(llvm_type)
             );
-    global_vars.insert(std::make_pair(name, std::move(var)));
+    global_vars.insert(std::make_pair(name, LLVMCompiler::Variable{llvm_type, var}));
 }
 
 void LLVMCompiler::declare_global_var(const std::unique_ptr<VariableDecl>& stmt) {
@@ -40,7 +69,7 @@ llvm::Type* LLVMCompiler::from_builtin_type(BuiltinType type) {
     switch (type) {
         case BuiltinType::Int: return builder.getInt32Ty();
         case BuiltinType::IntPointer: return llvm::Type::getInt32PtrTy(ctx); 
-        case BuiltinType::String: return builder.getInt8PtrTy();
+        case BuiltinType::String: return llvm::Type::getInt32PtrTy(ctx);
     }
 }
 
@@ -97,13 +126,21 @@ void LLVMCompiler::visit(const BinaryExpression& expr) {
 }
 
 void LLVMCompiler::visit(const IndexExpression& expr) {
-    auto ptr = compile_expr_ptr(expr.ptr);
+    auto ptr = compile_expr_val(expr.ptr);
     auto index = compile_expr_val(expr.index);
     auto address = builder.CreateGEP(ptr, index);
     auto lazy_value = lazyValue<llvm::Value*>(
-                [this, address](){ return builder.CreateLoad(address); }
+                [this, address](){ return builder.CreateSExtOrTrunc(builder.CreateLoad(address), builder.getInt32Ty()); }
             );
     yield(lazy_value, address);
+}
+
+llvm::Value* LLVMCompiler::convert_to_bool(llvm::Value* expr) {
+    if (expr->getType() != builder.getInt1Ty()) {
+        return builder.CreateICmpNE(expr, builder.getInt32(0));
+    } else {
+        return expr;
+    }
 }
 
 void LLVMCompiler::visit(const VariableRef& expr) {
@@ -130,7 +167,12 @@ void LLVMCompiler::visit(const IntConst& expr) {
 void LLVMCompiler::visit(const StringConst& expr) {
     const char* ptr = reinterpret_cast<const char*>(expr.value.data());
     std::size_t size = expr.value.length() * sizeof(wchar_t);
-    yield(builder.CreateGlobalStringPtr(llvm::StringRef(ptr, size)));
+    yield(
+        builder.CreateBitCast(
+            builder.CreateGlobalStringPtr(llvm::StringRef(ptr, size)),
+            llvm::Type::getInt32PtrTy(ctx)
+        )    
+    );
 }
 
 void LLVMCompiler::visit(const Block& block) {
@@ -141,6 +183,21 @@ void LLVMCompiler::visit(const Block& block) {
     leave();
 }
 
+void LLVMCompiler::visit(const ExternFunctionDecl& decl) {
+    Function function;
+    std::vector<llvm::Type*> parameter_types;
+    for (const auto & param : decl.parameters) {
+        function.parameters.push_back(from_builtin_type(param.type));
+    }
+    llvm::ArrayRef<llvm::Type*> params_ref{function.parameters};
+    function.type = llvm::FunctionType::get(from_builtin_type(decl.return_type), params_ref, false);
+    function.llvm_ptr = llvm::Function::Create(function.type, llvm::Function::ExternalLinkage, "", *module);
+    function.llvm_ptr->setCallingConv(llvm::CallingConv::C);
+    std::string ascii_name(decl.func_name.begin(), decl.func_name.end());
+    function.llvm_ptr->setName(ascii_name);
+    functions.insert(std::make_pair(decl.func_name, std::move(function)));
+}
+
 void LLVMCompiler::visit(const FunctionDecl& decl) {
     Function function;
     std::vector<llvm::Type*> parameter_types;
@@ -149,7 +206,7 @@ void LLVMCompiler::visit(const FunctionDecl& decl) {
     }
     llvm::ArrayRef<llvm::Type*> params_ref{function.parameters};
     function.type = llvm::FunctionType::get(from_builtin_type(decl.return_type), params_ref, false);
-    function.llvm_ptr = llvm::Function::Create(function.type, llvm::Function::ExternalLinkage, "", &module);
+    function.llvm_ptr = llvm::Function::Create(function.type, llvm::Function::ExternalLinkage, "", *module);
     function.llvm_ptr->setCallingConv(llvm::CallingConv::C);
     auto param_it = function.llvm_ptr->arg_begin(); 
     llvm::BasicBlock* entry = llvm::BasicBlock::Create(ctx, "entry", function.llvm_ptr);
@@ -191,6 +248,7 @@ const LLVMCompiler::Variable& LLVMCompiler::find_variable(const std::wstring& na
             return it->second;
         }
     }
+    return global_vars.find(name)->second;
     // after semantic analysys should never reach here
 }
 
@@ -239,7 +297,7 @@ void LLVMCompiler::visit(const IfStatement& stmt) {
         auto value = compile_expr_val(condition);
         llvm::BasicBlock* cond_true = llvm::BasicBlock::Create(ctx, "cond_true", current_function);
         llvm::BasicBlock* cond_false = llvm::BasicBlock::Create(ctx, "cond_false", current_function);
-        builder.CreateCondBr(value, cond_true, cond_false);
+        builder.CreateCondBr(convert_to_bool(value), cond_true, cond_false);
         builder.SetInsertPoint(cond_true);
         compile(block);
         builder.CreateBr(after_if);
@@ -274,7 +332,7 @@ void LLVMCompiler::visit(const ForStatement& stmt) {
     auto new_iterator = builder.CreateAdd(iterator, increase);
     builder.CreateStore(new_iterator, ptr);
     auto condition = builder.CreateICmpSLT(new_iterator, end);
-    builder.CreateCondBr(condition, loop_body, after_loop);
+    builder.CreateCondBr(convert_to_bool(condition), loop_body, after_loop);
     builder.SetInsertPoint(after_loop);
     leave();
 }
@@ -286,24 +344,53 @@ void LLVMCompiler::visit(const WhileStatement& stmt) {
     builder.SetInsertPoint(loop_body);
     compile(stmt.block);
     auto condition = compile_expr_val(stmt.condition);
-    builder.CreateCondBr(condition, loop_body, after_loop);
+    builder.CreateCondBr(convert_to_bool(condition), loop_body, after_loop);
     builder.SetInsertPoint(after_loop);
 }
 
+void LLVMCompiler::compile_entrypoint(const std::list<std::unique_ptr<VariableDecl>>& global_vars_decl) {
+    llvm::FunctionType* type = llvm::FunctionType::get(builder.getInt32Ty(), false);
+    llvm::Function* function = llvm::Function::Create(type, llvm::Function::ExternalLinkage, "main", *module);
+    entrypoint_function = function;
+    llvm::BasicBlock* entrypoint = llvm::BasicBlock::Create(ctx, "__entrypoint__", function);
+    builder.SetInsertPoint(entrypoint);
+    for (const auto & vars : global_vars_decl) {
+        initialize_variables(vars);
+    }
+    auto main_it = functions.find(L"main");
+    if (main_it == functions.end()) {
+        report_undefined_main();
+    }
+    builder.CreateRet(builder.CreateCall(main_it->second.llvm_ptr));
+}
+
+void LLVMCompiler::initialize_variables(const std::unique_ptr<VariableDecl>& decl) {
+    for (const auto & var : decl->var_decls) {
+        if (var.initial_value) {
+            auto value = compile_expr_val(*var.initial_value);
+            auto address = get_variable_ptr(var.name);
+            builder.CreateStore(value, address);
+        }
+    }
+}
+
 void LLVMCompiler::visit(const Program& program) {
+    for (const auto & extern_func : program.externs) {
+        compile(extern_func);
+    }
     for (const auto & stmt : program.global_vars) {
         declare_global_var(stmt);
     }
     for (const auto & function : program.functions) {
         compile(function);
     }
-
+    compile_entrypoint(program.global_vars);
+    llvm::verifyModule(*module, &llvm::errs());
     optimize();
-    module.print(llvm::errs(), nullptr);
 }
 
 void LLVMCompiler::optimize() {
-    auto FPM = std::make_unique<llvm::legacy::FunctionPassManager>(&module);
+    auto FPM = std::make_unique<llvm::legacy::FunctionPassManager>(module.get());
     FPM->add(llvm::createInstructionCombiningPass());
     FPM->add(llvm::createReassociatePass());
     FPM->add(llvm::createGVNPass());
@@ -313,6 +400,12 @@ void LLVMCompiler::optimize() {
     for (auto & function : functions) {
         FPM->run(*function.second.llvm_ptr);
     }
+}
+
+void LLVMCompiler::report_undefined_main() {
+    throw CompilerException {
+        L"Undefined reference to main function"
+    };
 }
 
 std::string default_data_layout = 

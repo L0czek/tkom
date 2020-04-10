@@ -156,8 +156,22 @@ void PrintVisitor::visit(const WhileStatement& target) {
 	str += concat(make_identation(ident), L"end while ]");
 }
 
+void PrintVisitor::visit(const ExternFunctionDecl& target) {
+	str = concat(make_identation(ident), L"[ get extern function name = `", target.func_name, L"`; return type = `", repr(target.return_type), L"`; args = {\n");
+	for (const auto &i : target.parameters) {
+		str += concat(make_identation(ident + 2), L"name = `", i.name, L"`; type = `", repr(i.type), L"`,\n");
+	}
+	str += make_identation(ident+1) + L"}\n";
+    str += concat(make_identation(ident), L"]");
+}
+
 void PrintVisitor::visit(const Program& target) {
-	for (const auto &i : target.global_vars) {
+    for (const auto &i : target.externs) {
+        PrintVisitor visitor{ident + 1};
+        i->accept(visitor);
+        str += visitor.result() + L"\n";
+    }
+    for (const auto &i : target.global_vars) {
 		PrintVisitor visitor{ident + 1};
 		i->accept(visitor);
 		str += visitor.result() + L"\n";	

@@ -210,7 +210,8 @@ const std::unordered_map<std::wstring, TokenType> Lexer::keywords = {
     { L"else", TokenType::KW_ELSE },
     { L"return", TokenType::KW_RETURN },
     { L"let", TokenType::KW_LET },
-    { L"in", TokenType::KW_IN }
+    { L"in", TokenType::KW_IN },
+    { L"extern", TokenType::KW_EXTERN }
 };
 
 const std::unordered_set<wchar_t> Lexer::operator_chars = {
