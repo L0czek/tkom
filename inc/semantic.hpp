@@ -62,6 +62,7 @@ private:
     void enter();
     void leave();
     ExprType from_builtin_type(BuiltinType type);
+    ExprType from_builtin_type_value(BuiltinType type);
     BuiltinType get_var(const VariableRef& var) const;
     void declare_var(const VariableDecl::SingleVarDecl& expr);
     bool check_var_name(const std::wstring& name);

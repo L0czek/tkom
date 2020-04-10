@@ -5,6 +5,8 @@
 #include <sstream>
 #include <tuple>
 #include <memory>
+#include <optional>
+#include <functional>
 
 template<typename ... StringElements>
 class StringBuilder {
@@ -26,6 +28,42 @@ public:
         return wss.str();
     }
 };
+
+template<typename Value>
+class lazyValue {
+    std::optional<Value> value;
+    std::function<Value()> ctor;
+public:
+    lazyValue(const lazyValue& other);
+    lazyValue(const Value& v);
+    lazyValue(Value&& v);
+    lazyValue(const std::function<Value()>& ctor);
+
+    Value get();
+    Value get() const;
+};
+
+template<typename Value> lazyValue<Value>::lazyValue(const lazyValue& other) : value(other.value), ctor(other.ctor) {}
+template<typename Value> lazyValue<Value>::lazyValue(const Value& v) : value(v) {}
+template<typename Value> lazyValue<Value>::lazyValue(Value&& v) : value(v) {}
+template<typename Value> lazyValue<Value>::lazyValue(const std::function<Value()>& ctor) : value(), ctor(ctor) {}
+
+template<typename Value> Value lazyValue<Value>::get() const{
+    if (value) {
+        return *value;
+    } else {
+        return ctor();
+    }
+}
+
+template<typename Value> Value lazyValue<Value>::get() {
+    if (value) {
+        return *value;
+    } else {
+        value = ctor();
+        return *value;
+    }
+}
 
 template<typename ... StringElements>
 std::wstring concat(StringElements&&... elements) {

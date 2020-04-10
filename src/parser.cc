@@ -1,5 +1,5 @@
 #include "parser.hpp"
-
+#include <iostream>
 std::unique_ptr<Lexer> Parser::attach_lexer(std::unique_ptr<Lexer> lex) noexcept {
 	auto tmp = std::move(lexer);
 	lexer = std::move(lex);
@@ -13,6 +13,7 @@ std::unique_ptr<Lexer> Parser::detach_lexer() noexcept {
 
 void Parser::advance() noexcept {
 	token = lexer->next();
+    std::wcout<<repr(token)<<L"\n";
 }
 
 BuiltinType Parser::get_builtin_type(const std::wstring& wstr) const {

@@ -90,8 +90,10 @@ void SemanticAnalyser::visit(const UnaryExpression& expr) {
             yield(SemanticAnalyser::ExprType::IntPointer, pos);
             break;
         case UnaryOperator::Deref:      
-            require(SemanticAnalyser::ExprType::IntPointer, SemanticAnalyser::ExprType::StringReference);
-            yield(SemanticAnalyser::ExprType::Int, pos);
+            require(SemanticAnalyser::ExprType::IntPointer, 
+                    SemanticAnalyser::ExprType::StringReference,
+                    SemanticAnalyser::ExprType::IntPointerReference);
+            yield(SemanticAnalyser::ExprType::IntReference, pos);
             break;
         case UnaryOperator::BooleanNeg:
             require(SemanticAnalyser::ExprType::Bool);
@@ -180,12 +182,19 @@ void SemanticAnalyser::visit(const FunctionCall& expr) {
 
     auto param_it = func.parameters.cbegin();
     for (const auto &arg : expr.arguments) {
-        analyse(arg);
-        require(from_builtin_type(param_it->second));
+        check_assignable_by(param_it->second, arg);
         std::advance(param_it, 1);
     }
 
-    yield(from_builtin_type(func.return_type), expr.position());
+    yield(from_builtin_type_value(func.return_type), expr.position());
+}
+
+SemanticAnalyser::ExprType SemanticAnalyser::from_builtin_type_value(BuiltinType type) {
+    switch (type) {
+        case BuiltinType::Int: return SemanticAnalyser::ExprType::Int;
+        case BuiltinType::String: return SemanticAnalyser::ExprType::String;
+        case BuiltinType::IntPointer: return SemanticAnalyser::ExprType::IntPointer;
+    }
 }
 
 SemanticAnalyser::ExprType SemanticAnalyser::from_builtin_type(BuiltinType type) {
@@ -366,6 +375,7 @@ void SemanticAnalyser::visit(const Program& program) {
     for (const auto & var : program.global_vars) {
         analyse(var);
     }
+    ignore_return(program.global_vars.size());
     for (const auto & function : program.functions) {
         analyse(function);
     }

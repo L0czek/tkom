@@ -5,10 +5,12 @@
 #include "parser.hpp"
 #include "print.hpp"
 #include "semantic.hpp"
+#include "backend.hpp"
 
 int main() {
     auto lexer = Lexer::from_source(Source::from_stdin());
     Parser parser;
+    std::cout.setf(std::ios::unitbuf);
     try{ 
         parser.attach_lexer(std::move(lexer));
         auto ast = parser.parse_Program();
@@ -18,6 +20,8 @@ int main() {
         lexer = parser.detach_lexer();
         auto source = lexer->change_source(nullptr);
         analyse(ast, std::move(source));
+        std::wcout.flush();
+        compile(ast);
         int a = 1;
     
     } catch (LexerException e) {

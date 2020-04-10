@@ -20,6 +20,8 @@ std::wstring to_wstring(const Position& position) {
             std::to_wstring(position.line_number), 
             L"; stream: ", 
             std::to_wstring(position.stream_position), 
+            L"; column: ",
+            std::to_wstring(position.column_number),
             L"; "
         );
 }
