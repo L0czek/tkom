@@ -53,9 +53,19 @@ std::wstring Source::get_lines(std::size_t from, std::size_t to)  {
 
 FileSource::FileSource(const std::string& path) : file(path, std::ios::in) {
     file.imbue(std::locale(Locale::get().locale(), new std::codecvt_utf8<wchar_t>{}));
+    if (!file.good()) {
+        Source::report_error("IO error when trying to access file");
+    }
 }
+
 FileSource::~FileSource() {
     file.close();
+}
+
+void Source::report_error(const std::string& msg) {
+    throw SourceException {
+        msg
+    };
 }
 
 std::optional<wchar_t> FileSource::next() noexcept {

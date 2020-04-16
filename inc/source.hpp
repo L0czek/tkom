@@ -31,6 +31,7 @@ public:
 
     virtual ~Source();
     
+    static void report_error(const std::string& msg);
     static std::unique_ptr<Source> from_file(const std::string& path);
     static std::unique_ptr<Source> from_stdin();
     static std::unique_ptr<Source> from_wstring(const std::wstring& str);
@@ -67,6 +68,14 @@ public:
 
     std::optional<wchar_t> next() noexcept override;
     std::wstring input_between(const Position& start, const Position& end) override;
+};
+
+class SourceException :public std::runtime_error {
+    std::string msg;
+public:
+    SourceException(const std::string& msg) : msg(msg), std::runtime_error("Source Exception") {}
+    const std::string& message() const noexcept { return msg; }
+    const char* what() const noexcept override { return msg.c_str(); }
 };
 
 #endif

@@ -7,7 +7,6 @@
 #include <stack>
 
 class Parser {
-    public: // TODO remove after completed debugging
     std::unique_ptr<Lexer> lexer;
     Token token;
 
@@ -68,15 +67,16 @@ public:
 
     std::unique_ptr<Lexer> attach_lexer(std::unique_ptr<Lexer> lex) noexcept;
     std::unique_ptr<Lexer> detach_lexer() noexcept; 
-    std::unique_ptr<ASTNode> parse();
+    std::unique_ptr<Program> parse();
 };
 
 class ParserException :public std::runtime_error {
     std::wstring msg;
+    std::string ascii_msg;
 public:
-    ParserException(const std::wstring& wstr) :msg(wstr), std::runtime_error("ParserException") {}
+    ParserException(const std::wstring& wstr) :msg(wstr), ascii_msg(to_ascii_string(msg)), std::runtime_error("ParserException") {}
     const std::wstring& message() const noexcept { return msg; }
-    const char* what() const noexcept override { return to_ascii_string(msg).c_str(); }
+    const char* what() const noexcept override { return ascii_msg.c_str(); }
 };
 
 template<typename ... Types>

@@ -117,10 +117,11 @@ void analyse(const std::unique_ptr<Program>& program, std::unique_ptr<Source> so
 
 class SemanticException :public std::runtime_error {
     std::wstring msg;
+    std::string ascii_msg;
 public:
-    SemanticException(const std::wstring& wstr) :msg(wstr), std::runtime_error("ParserException") {}
+    SemanticException(const std::wstring& wstr) :msg(wstr), ascii_msg(to_ascii_string(msg)), std::runtime_error("ParserException") {}
     const std::wstring& message() const noexcept { return msg; }
-    const char* what() const noexcept override { return to_ascii_string(msg).c_str(); }
+    const char* what() const noexcept override { return ascii_msg.c_str(); }
 };
 
 template<typename ... Types>

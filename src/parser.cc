@@ -15,6 +15,10 @@ void Parser::advance() noexcept {
 	token = lexer->next();
 }
 
+std::unique_ptr<Program> Parser::parse() {
+    return parse_Program();
+}
+
 BuiltinType Parser::get_builtin_type(const std::wstring& wstr) const {
 	if (wstr == L"int") {
 		return BuiltinType::Int;

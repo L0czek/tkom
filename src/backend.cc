@@ -9,6 +9,9 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Support/TargetSelect.h"
+#include <llvm/Support/TargetSelect.h>
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ExecutionEngine/GenericValue.h"
 
 llvm::LLVMContext LLVMCompiler::ctx;
 
@@ -45,7 +48,19 @@ void LLVMCompiler::print_ir() {
 }
 
 int LLVMCompiler::execute() {
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
+    std::string err;
+    llvm::EngineBuilder engine_builder(std::move(module));
+    engine_builder.setEngineKind(llvm::EngineKind::JIT).setErrorStr(&err);
+    llvm::ExecutionEngine *execution_engine = engine_builder.create();
+    if (!execution_engine) {
+        report_jit_creation_error(err);
     }
+    std::vector<llvm::GenericValue> noargs;
+    return static_cast<int>(execution_engine->runFunction(entrypoint_function, noargs).IntVal.getLimitedValue());
+}
 
 void LLVMCompiler::declare_global_var(const std::wstring& name, BuiltinType type) {
     auto llvm_type = from_builtin_type(type);
@@ -108,7 +123,7 @@ void LLVMCompiler::visit(const BinaryExpression& expr) {
         case BinaryOperator::Minus:             yield( builder.CreateSub(lhs, rhs) ); break;
         case BinaryOperator::Multiply:          yield( builder.CreateMul(lhs, rhs) ); break;
         case BinaryOperator::Divide:            yield( builder.CreateSDiv(lhs, rhs) ); break;
-        case BinaryOperator::Modulo:            throw std::runtime_error("not implemented."); break;
+        case BinaryOperator::Modulo:            yield( builder.CreateSRem(lhs, rhs) ); break;
         case BinaryOperator::BooleanAnd:        
         case BinaryOperator::And:               yield( builder.CreateAnd(lhs, rhs) ); break;
         case BinaryOperator::Xor:               yield( builder.CreateXor(lhs, rhs) ); break;
@@ -405,6 +420,13 @@ void LLVMCompiler::optimize() {
 void LLVMCompiler::report_undefined_main() {
     throw CompilerException {
         L"Undefined reference to main function"
+    };
+}
+
+void LLVMCompiler::report_jit_creation_error(const std::string& msg) {
+    std::wstring wstr(msg.begin(), msg.end());
+    throw CompilerException {
+        concat(L"Cannot create LLVM's JIT, reason: ", wstr)
     };
 }
 

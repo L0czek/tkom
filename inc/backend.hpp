@@ -84,6 +84,7 @@ class LLVMCompiler :public Visitor {
     llvm::Value* convert_to_bool(llvm::Value* expr);
 
     void report_undefined_main();
+    void report_jit_creation_error(const std::string& msg);
 public:
     LLVMCompiler(const LLVMCompiler&) = delete;
     LLVMCompiler(const std::string& target, const std::string& data_layout);
@@ -121,10 +122,11 @@ std::unique_ptr<LLVMCompiler> compile(
 
 class CompilerException :public std::runtime_error {
     std::wstring msg;
+    std::string ascii_msg;
 public:
-    CompilerException(const std::wstring& wstr) :msg(wstr), std::runtime_error("CompilerException") {}
+    CompilerException(const std::wstring& wstr) :msg(wstr), ascii_msg(to_ascii_string(msg)), std::runtime_error("CompilerException") {}
     const std::wstring& message() const noexcept { return msg; }
-    const char* what() const noexcept override { return to_ascii_string(msg).c_str(); }
+    const char* what() const noexcept override { return ascii_msg.c_str(); }
 };
 
 template<typename Node>

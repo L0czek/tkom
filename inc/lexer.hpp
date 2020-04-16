@@ -36,7 +36,7 @@ public:
 
     Token next();
 
-    std::unique_ptr<Source> change_source(std::unique_ptr<Source> source) noexcept;
+    std::unique_ptr<Source> change_source(std::unique_ptr<Source> source = nullptr) noexcept;
     std::wstring source_between(const Position& start, const Position& end);
     std::wstring get_lines(std::size_t from, std::size_t to);
 
@@ -45,9 +45,10 @@ public:
 
 class LexerException :public std::runtime_error {
     std::wstring msg;
+    std::string ascii_msg;
 public:
-    LexerException(const std::wstring& error) :msg(error), std::runtime_error("LexerException") {}
-    const char* what() const noexcept override { return to_ascii_string(msg).c_str(); }
+    LexerException(const std::wstring& error) :msg(error), ascii_msg(to_ascii_string(msg)), std::runtime_error("LexerException") {}
+    const char* what() const noexcept override { return ascii_msg.c_str(); }
     const std::wstring& message() const noexcept { return msg; }
 };
 
