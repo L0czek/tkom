@@ -56,7 +56,7 @@ std::optional<std::string> CommandLine::getInputFile() const noexcept {
 
 std::optional<std::string> CommandLine::getOutputFile() const noexcept {
     if (options.count("output-file")) {
-        return options["ouput-file"].as<std::string>();
+        return options["output-file"].as<std::string>();
     } else {
         return {};
     }
