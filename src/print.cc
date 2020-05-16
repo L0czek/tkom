@@ -222,6 +222,7 @@ std::wstring repr(BinaryOperator op) {
 
 std::wstring repr(UnaryOperator op) {
     switch (op) {
+        case UnaryOperator::Minus: return L"Unary Minus";
         case UnaryOperator::Neg: return L"Neg";
         case UnaryOperator::Addrof: return L"Addrof";
         case UnaryOperator::BooleanNeg: return L"BooleanNeg";
@@ -244,5 +245,5 @@ std::wstring repr(BuiltinType type) {
 		case BuiltinType::String: return L"String";
 		case BuiltinType::IntPointer: return L"IntPointer";
 	}
-	throw std::runtime_error("no such operator");
+	throw std::runtime_error("no such type");
 }
