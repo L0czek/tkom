@@ -162,7 +162,7 @@ Token Lexer::string_const() {
 
         if (escaped) {
             escaped = false;
-            str += ch;
+            str += escape_char(ch);
         } else {
             if (ch == L'"') {
                 ch_opt = source->next();
@@ -178,9 +178,21 @@ Token Lexer::string_const() {
     report_error(position, L"Error reached end of file while collecting string", str);
 }
 
- std::wstring Lexer::source_between(const Position& start, const Position& end) {
+wchar_t Lexer::escape_char(wchar_t ch) {
+    switch (ch) {
+        case 'n': return '\n';
+        case 'r': return '\r';
+        case 'a': return '\a';
+        case 'b': return '\b';
+        case 't': return '\t';
+
+        default: return ch;
+    }
+}
+
+std::wstring Lexer::source_between(const Position& start, const Position& end) {
     return source->input_between(start, end);
- }
+}
 
 
 void Lexer::report_error(const Position& error_position, const std::wstring& error_msg, wchar_t bad_char) {

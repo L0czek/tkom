@@ -180,8 +180,8 @@ void LLVMCompiler::visit(const IntConst& expr) {
 }
 
 void LLVMCompiler::visit(const StringConst& expr) {
-    const char* ptr = reinterpret_cast<const char*>(expr.value.data());
-    std::size_t size = expr.value.length() * sizeof(wchar_t);
+    const char* ptr = reinterpret_cast<const char*>(expr.value.c_str());
+    std::size_t size = (expr.value.length() + 1) * sizeof(wchar_t);
     yield(
         builder.CreateBitCast(
             builder.CreateGlobalStringPtr(llvm::StringRef(ptr, size)),
@@ -232,15 +232,20 @@ void LLVMCompiler::visit(const FunctionDecl& decl) {
     current_function = function.llvm_ptr;
     compile(decl.block);
     leave();
+
+    for (auto it=function.llvm_ptr->begin(); it != function.llvm_ptr->end(); ++it) {
+        remove_dead_code(*it);
+    }
 }
 
 void LLVMCompiler::process_parameters(const std::list<FunctionDecl::Parameter>& parameters, llvm::Function* function) {
     auto param_it = function->arg_begin();
     for (const auto & param : parameters) {
         auto type = param_it->getType();
-        auto value = builder.CreateAlloca(type);
-        declare_variable(param.name, value, type);
-        builder.CreateStore(param_it, value);
+        auto ptr = builder.CreateAlloca(type);
+        declare_variable(param.name, ptr, type);
+        builder.CreateStore(param_it, ptr);
+        std::advance(param_it, 1);
     }
 }
 
@@ -275,6 +280,19 @@ llvm::Type* LLVMCompiler::get_variable_type(const std::wstring& name) {
     return find_variable(name).type;
 }
 
+void LLVMCompiler::remove_dead_code(llvm::BasicBlock& block) {
+    for (auto it=block.begin(); it != block.end(); ) {
+        if (it->isTerminator()) {
+            it++;
+            while (it != block.end()) {
+                it = it->eraseFromParent();
+            }
+        } else {
+            it++;
+        }
+    }
+}
+
 void LLVMCompiler::visit(const VariableDecl& stmt) {
     for (const auto & var : stmt.var_decls) {
         auto type = from_builtin_type(var.type);
@@ -307,11 +325,13 @@ void LLVMCompiler::visit(const ExpressionStatement& stmt) {
 
 void LLVMCompiler::visit(const IfStatement& stmt) {
     llvm::BasicBlock* after_if = llvm::BasicBlock::Create(ctx, "after_if", current_function);
+    llvm::BasicBlock* cond_true;
+    llvm::BasicBlock* cond_false;
     for (const auto & element : stmt.blocks) {
         const auto & [ condition, block ] = element;
         auto value = compile_expr_val(condition);
-        llvm::BasicBlock* cond_true = llvm::BasicBlock::Create(ctx, "cond_true", current_function);
-        llvm::BasicBlock* cond_false = llvm::BasicBlock::Create(ctx, "cond_false", current_function);
+        cond_true = llvm::BasicBlock::Create(ctx, "cond_true", current_function);
+        cond_false = llvm::BasicBlock::Create(ctx, "cond_false", current_function);
         builder.CreateCondBr(convert_to_bool(value), cond_true, cond_false);
         builder.SetInsertPoint(cond_true);
         compile(block);
@@ -338,28 +358,35 @@ void LLVMCompiler::visit(const ForStatement& stmt) {
     auto ptr = builder.CreateAlloca(builder.getInt32Ty());
     builder.CreateStore(start, ptr);
     declare_variable(stmt.loop_variable, ptr, builder.getInt32Ty());
+    llvm::BasicBlock* loop_condition= llvm::BasicBlock::Create(ctx, "loop_condition", current_function);
     llvm::BasicBlock* loop_body = llvm::BasicBlock::Create(ctx, "loop_body", current_function);
     llvm::BasicBlock* after_loop = llvm::BasicBlock::Create(ctx, "after_loop", current_function);
-    builder.CreateBr(loop_body);
+    builder.CreateBr(loop_condition);
+    builder.SetInsertPoint(loop_condition);
+    auto iterator = builder.CreateLoad(ptr);
+    auto condition = builder.CreateICmpSLT(iterator, end);
+    builder.CreateCondBr(convert_to_bool(condition), loop_body, after_loop);
     builder.SetInsertPoint(loop_body);
     compile(stmt.block);
-    auto iterator = builder.CreateLoad(ptr);
+    iterator = builder.CreateLoad(ptr);
     auto new_iterator = builder.CreateAdd(iterator, increase);
     builder.CreateStore(new_iterator, ptr);
-    auto condition = builder.CreateICmpSLT(new_iterator, end);
-    builder.CreateCondBr(convert_to_bool(condition), loop_body, after_loop);
+    builder.CreateBr(loop_condition);     
     builder.SetInsertPoint(after_loop);
     leave();
 }
 
 void LLVMCompiler::visit(const WhileStatement& stmt) {
-    llvm::BasicBlock* after_loop = llvm::BasicBlock::Create(ctx, "after_loop", current_function);
+    llvm::BasicBlock* loop_condition = llvm::BasicBlock::Create(ctx, "loop_condition", current_function);
     llvm::BasicBlock* loop_body = llvm::BasicBlock::Create(ctx, "loop_body", current_function);
-    builder.CreateBr(loop_body);
-    builder.SetInsertPoint(loop_body);
-    compile(stmt.block);
+    llvm::BasicBlock* after_loop = llvm::BasicBlock::Create(ctx, "after_loop", current_function);
+    builder.CreateBr(loop_condition);
+    builder.SetInsertPoint(loop_condition);
     auto condition = compile_expr_val(stmt.condition);
     builder.CreateCondBr(convert_to_bool(condition), loop_body, after_loop);
+    builder.SetInsertPoint(loop_body);
+    compile(stmt.block);
+    builder.CreateBr(loop_condition);
     builder.SetInsertPoint(after_loop);
 }
 

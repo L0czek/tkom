@@ -21,7 +21,8 @@ class Lexer {
     Token operator_lexem();
     Token int_const();
     Token string_const();
-    
+    wchar_t escape_char(wchar_t ch);
+
     template<typename ... Options>
     Token choose_operator_on(wchar_t chr, TokenType on_match, Options&&... options);
     Token choose_operator_on(TokenType on_mismatch);

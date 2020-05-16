@@ -82,6 +82,7 @@ class LLVMCompiler :public Visitor {
     void compile_entrypoint(const std::list<std::unique_ptr<VariableDecl>>& global_vars_decl);
     void initialize_variables(const std::unique_ptr<VariableDecl>& decl);
     llvm::Value* convert_to_bool(llvm::Value* expr);
+    void remove_dead_code(llvm::BasicBlock& block);
 
     void report_undefined_main();
     void report_jit_creation_error(const std::string& msg);

@@ -49,7 +49,7 @@ bool is_multiplicative_op(const Token& token) {
 }
 
 bool is_unary_op(const Token& token) {
-    return is_one_of(token, TokenType::AMPERSAND, TokenType::STAR, TokenType::BIT_NEG);
+    return is_one_of(token, TokenType::AMPERSAND, TokenType::STAR, TokenType::BIT_NEG, TokenType::MINUS);
 }
 
 std::optional<int> get_int(const Token& token) {
