@@ -9,7 +9,7 @@
 class Parser {
     std::unique_ptr<Lexer> lexer;
     Token token;
-
+private:
     std::unique_ptr<Program> parse_Program();
     std::unique_ptr<ExternFunctionDecl> parse_ExternFunctionDecl();
     std::unique_ptr<FunctionDecl> parse_FunctionDecl();
