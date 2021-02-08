@@ -1,17 +1,17 @@
 #include "backend.hpp"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Transforms/InstCombine/InstCombine.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Scalar/GVN.h"
-#include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/Support/TargetSelect.h"
+
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/Bitcode/BitcodeWriter.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/GenericValue.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/TargetSelect.h>
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ExecutionEngine/GenericValue.h"
+#include <llvm/Support/ToolOutputFile.h>
+#include <llvm/Transforms/InstCombine/InstCombine.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Scalar/GVN.h>
 
 llvm::LLVMContext LLVMCompiler::ctx;
 

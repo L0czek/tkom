@@ -1,4 +1,5 @@
 #include "semantic.hpp"
+
 #include <cassert>
 
 #define ASSERT_EMPTY_STACK assert(stack.empty())
@@ -78,12 +79,7 @@ void SemanticAnalyser::check_id(const std::wstring &name, const Position &positi
 bool SemanticAnalyser::is_in_scope(const std::wstring &name,
                                    const std::unordered_map<std::wstring, BuiltinType> &variables) const
 {
-    auto it = variables.find(name);
-    if (it != variables.end()) {
-        return true;
-    } else {
-        return false;
-    }
+    return variables.find(name) != variables.end();
 }
 
 void SemanticAnalyser::visit(const UnaryExpression &expr)
@@ -548,7 +544,7 @@ void SemanticAnalyser::report_undefined_variable(const std::wstring &name, const
 {
     throw SemanticException{ concat(
         position_in_file(position), L"\n In \n", source->get_lines(position.line_number, position.line_number + 1),
-        L"\n", error_marker(position), L"\n\n", L"Error cannot find variable of name`", name, L"` in scope.") };
+        L"\n", error_marker(position), L"\n\n", L"Error cannot find variable named `", name, L"` in scope.") };
 }
 
 void SemanticAnalyser::report_variable_redeclaration(const std::wstring &name, const Position &position) const

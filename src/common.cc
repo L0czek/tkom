@@ -1,5 +1,4 @@
 #include "common.hpp"
-
 #include "source.hpp"
 
 std::wstring error_marker(const Position &pos)

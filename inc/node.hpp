@@ -1,14 +1,15 @@
 #ifndef __NODE_HPP__
 #define __NODE_HPP__
 
-#include <list>
-#include <memory>
-#include <utility>
-#include <optional>
-#include <string>
+#include "source.hpp"
 #include "token.hpp"
 #include "visitor.hpp"
-#include "source.hpp"
+
+#include <list>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
 
 struct ASTNode {
     virtual ~ASTNode()

@@ -1,17 +1,17 @@
 #ifndef __SEMANTIC_HPP__
 #define __SEMANTIC_HPP__
 
-#include "visitor.hpp"
-#include "node.hpp"
 #include "common.hpp"
+#include "node.hpp"
+#include "visitor.hpp"
 
-#include <stack>
+#include <algorithm>
 #include <deque>
-#include <unordered_map>
-#include <unordered_set>
 #include <memory>
 #include <optional>
-#include <algorithm>
+#include <stack>
+#include <unordered_map>
+#include <unordered_set>
 
 class SemanticAnalyser : public Visitor {
     std::unique_ptr<Source> source;

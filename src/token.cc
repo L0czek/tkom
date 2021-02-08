@@ -1,5 +1,4 @@
 #include "token.hpp"
-
 #include "common.hpp"
 
 bool is_expr_operator(const Token &token)

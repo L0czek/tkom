@@ -1,13 +1,13 @@
-#include <iostream>
-
-#include "source.hpp"
+#include "backend.hpp"
+#include "commandline.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
 #include "print.hpp"
 #include "semantic.hpp"
-#include "backend.hpp"
-#include "commandline.hpp"
+#include "source.hpp"
+
 #include <boost/exception/all.hpp>
+#include <iostream>
 
 int main(int argc, char *argv[])
 {
@@ -47,17 +47,7 @@ int main(int argc, char *argv[])
                 return compiled->execute();
             }
         }
-    } catch (const SourceException &e) {
-        std::cerr << e.message() << L"\n";
-    } catch (const LexerException &e) {
-        std::wcerr << e.message() << L"\n";
-    } catch (const ParserException &e) {
-        std::wcerr << e.message() << L"\n";
-    } catch (const SemanticException &e) {
-        std::wcerr << e.message() << L"\n";
-    } catch (const CompilerException &e) {
-        std::wcerr << e.message() << L"\n";
     } catch (const std::exception &e) {
-        std::cerr << "Commandline error: " << e.what() << "\n";
+        std::cerr << "Error: " << e.what() << "\n";
     }
 }

@@ -1,5 +1,7 @@
 #include "parser.hpp"
+
 #include <iostream>
+
 std::unique_ptr<Lexer> Parser::attach_lexer(std::unique_ptr<Lexer> lex) noexcept
 {
     auto tmp = std::move(lexer);

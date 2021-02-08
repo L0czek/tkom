@@ -1,5 +1,4 @@
 #include "node.hpp"
-
 #include "common.hpp"
 
 BinaryOperator BinOp_from_token(const Token &token)

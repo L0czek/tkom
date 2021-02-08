@@ -1,12 +1,13 @@
 #ifndef __LEXER_HPP__
 #define __LEXER_HPP__
 
-#include "token.hpp"
-#include "source.hpp"
 #include "common.hpp"
+#include "source.hpp"
+#include "token.hpp"
+
+#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
-#include <stdexcept>
 
 class Lexer {
     std::unique_ptr<Source> source;

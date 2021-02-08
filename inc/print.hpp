@@ -1,8 +1,9 @@
 #ifndef __PRINT_HPP__
 #define __PRINT_HPP__
 
-#include "visitor.hpp"
 #include "node.hpp"
+#include "visitor.hpp"
+
 #include <string>
 
 class PrintVisitor : public Visitor {

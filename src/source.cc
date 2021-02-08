@@ -1,8 +1,8 @@
+#include "common.hpp"
+#include "locale.hpp"
 #include "source.hpp"
 
 #include <codecvt>
-#include "locale.hpp"
-#include "common.hpp"
 
 Source::Source()
 {

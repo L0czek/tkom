@@ -1,22 +1,21 @@
 #ifndef __BACKEND_HPP__
 #define __BACKEND_HPP__
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/IRBuilder.h"
-
-#include "visitor.hpp"
-#include "node.hpp"
 #include "common.hpp"
+#include "node.hpp"
+#include "visitor.hpp"
 
-#include <memory>
-#include <vector>
-#include <stack>
 #include <deque>
+#include <llvm/ADT/ArrayRef.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <memory>
+#include <stack>
 #include <unordered_map>
+#include <vector>
 
 extern std::string default_data_layout;
 extern std::string default_target_triple;

@@ -1,6 +1,5 @@
-#include "print.hpp"
-
 #include "common.hpp"
+#include "print.hpp"
 
 PrintVisitor::PrintVisitor(std::size_t ident) : ident(ident), str(L"")
 {

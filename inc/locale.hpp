@@ -1,9 +1,9 @@
 #ifndef __LOCALE_HPP__
 #define __LOCALE_HPP__
 
-#include <unistd.h>
-#include <string>
 #include <locale>
+#include <string>
+#include <unistd.h>
 
 class Locale {
     std::string cpp_name;

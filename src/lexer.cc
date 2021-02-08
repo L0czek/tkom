@@ -1,7 +1,7 @@
 #include "lexer.hpp"
-
-#include "locale.hpp"
 #include "common.hpp"
+#include "locale.hpp"
+
 #include <locale>
 
 Lexer::Lexer(std::unique_ptr<Source> src) : locale(Locale::get().locale())

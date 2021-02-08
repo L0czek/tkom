@@ -1,7 +1,7 @@
 #include "commandline.hpp"
 
-#include <string>
 #include <iostream>
+#include <string>
 
 po::options_description CommandLine::make_options()
 {

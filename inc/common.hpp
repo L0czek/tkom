@@ -1,12 +1,12 @@
 #ifndef __COMMON_HPP__
 #define __COMMON_HPP__
 
-#include <string>
-#include <sstream>
-#include <tuple>
+#include <functional>
 #include <memory>
 #include <optional>
-#include <functional>
+#include <sstream>
+#include <string>
+#include <tuple>
 
 template <typename... StringElements> class StringBuilder {
     std::tuple<StringElements...> elements;

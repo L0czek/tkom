@@ -1,13 +1,13 @@
 #ifndef __TOKEN_HPP__
 #define __TOKEN_HPP__
 
-#include <string>
-#include <cstdint>
-#include <variant>
-#include <optional>
-#include <unordered_map>
-
 #include "source.hpp"
+
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <variant>
 
 enum class TokenType {
     IDENTIFIER = 0,
