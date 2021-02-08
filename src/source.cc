@@ -89,6 +89,7 @@ std::wstring FileSource::input_between(const Position &start, const Position &en
 		return L"";
 	}
 
+    file.clear();
 	auto position_backup = file.tellg();
 	file.seekg(st);
 	std::wstring source(en - st, L'\x00');
@@ -163,6 +164,7 @@ std::wstring StringSource::input_between(const Position &start, const Position &
 		return L"";
 	}
 
+    source_stream.clear();
 	auto position_backup = source_stream.tellg();
 	source_stream.seekg(st);
 	std::wstring source(en - st, L'\x00');
