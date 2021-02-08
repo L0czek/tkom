@@ -22,7 +22,7 @@ std::unique_ptr<LLVMCompiler> compile(
     ) {
     auto compiler = std::make_unique<LLVMCompiler>(target, data_layout);
     program->accept(*compiler);
-    return std::move(compiler);
+    return compiler;
 }
 
 LLVMCompiler::LLVMCompiler(const std::string& target, const std::string& data_layout)
@@ -86,6 +86,7 @@ llvm::Type* LLVMCompiler::from_builtin_type(BuiltinType type) {
         case BuiltinType::IntPointer: return llvm::Type::getInt32PtrTy(ctx); 
         case BuiltinType::String: return llvm::Type::getInt32PtrTy(ctx);
     }
+    throw CompilerException(L"Invalid type");
 }
 
 void LLVMCompiler::yield(lazyValue<llvm::Value*> value, lazyValue<llvm::Value*> address) {
@@ -223,7 +224,7 @@ void LLVMCompiler::visit(const FunctionDecl& decl) {
     function.type = llvm::FunctionType::get(from_builtin_type(decl.return_type), params_ref, false);
     function.llvm_ptr = llvm::Function::Create(function.type, llvm::Function::ExternalLinkage, "", *module);
     function.llvm_ptr->setCallingConv(llvm::CallingConv::C);
-    auto param_it = function.llvm_ptr->arg_begin(); 
+    function.llvm_ptr->arg_begin(); 
     llvm::BasicBlock* entry = llvm::BasicBlock::Create(ctx, "entry", function.llvm_ptr);
     builder.SetInsertPoint(entry);
     functions.insert(std::make_pair(decl.func_name, std::move(function)));

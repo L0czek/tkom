@@ -5,6 +5,7 @@
 #include "common.hpp"
 
 Source::Source() {
+    current_position.stream_position = 0;
     current_position.line_number = 1;
     current_position.column_number = 0;
     line_position[1] = current_position;
@@ -87,7 +88,7 @@ std::wstring FileSource::input_between(const Position& start, const Position& en
     }
 
     auto position_backup = file.tellg();
-    file.seekg(st, std::ios::beg);
+    file.seekg(st);
     std::wstring source(en - st, L'\x00');
     file.read(source.data(), en - st);
     file.seekg(position_backup);
@@ -154,7 +155,7 @@ std::wstring StringSource::input_between(const Position& start, const Position& 
     }
 
     auto position_backup = source_stream.tellg();
-    source_stream.seekg(st, std::ios::beg);
+    source_stream.seekg(st);
     std::wstring source(en - st, L'\x00');
     source_stream.read(source.data(), en - st);
     source_stream.seekg(position_backup);

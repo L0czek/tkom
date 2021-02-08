@@ -74,18 +74,18 @@ private:
     void check_main_function(const FunctionDecl& decl);
 
     template<typename ... Types>
-    void report_bad_type(Types&&... allowed) const;
-    void report_reserved_word(const std::wstring& word, const Position& pos) const;
-    void report_undefined_variable(const std::wstring& name, const Position& pos) const;
-    void report_undefined_function(const std::wstring& name, const Position& pos) const;
-    void report_invalid_argument(ExprType expected, const Position& pos) const;
-    void report_argument_number_mismatch(std::size_t expected, std::size_t got, const Position& pos) const;
-    void report_variable_redeclaration(const std::wstring& name, const Position& pos) const;
-    void report_function_redeclaration(const std::wstring& name, const Position& pos) const;
-    void report_parameter_redeclaration(const std::wstring& name, const Position& pos) const;
-    void report_no_return(const Position& position) const;
-    void report_main_bad_params(const Position& pos) const;
-    void report_main_bad_return_type(const Position& pos) const;
+    [[ noreturn ]] void report_bad_type(Types&&... allowed) const;
+    [[ noreturn ]] void report_reserved_word(const std::wstring& word, const Position& pos) const;
+    [[ noreturn ]] void report_undefined_variable(const std::wstring& name, const Position& pos) const;
+    [[ noreturn ]] void report_undefined_function(const std::wstring& name, const Position& pos) const;
+    [[ noreturn ]] void report_invalid_argument(ExprType expected, const Position& pos) const;
+    [[ noreturn ]] void report_argument_number_mismatch(std::size_t expected, std::size_t got, const Position& pos) const;
+    [[ noreturn ]] void report_variable_redeclaration(const std::wstring& name, const Position& pos) const;
+    [[ noreturn ]] void report_function_redeclaration(const std::wstring& name, const Position& pos) const;
+    [[ noreturn ]] void report_parameter_redeclaration(const std::wstring& name, const Position& pos) const;
+    [[ noreturn ]] void report_no_return(const Position& position) const;
+    [[ noreturn ]] void report_main_bad_params(const Position& pos) const;
+    [[ noreturn ]] void report_main_bad_return_type(const Position& pos) const;
 
     template<typename ... Types>
     static std::wstring repr(ExprType first, Types&&... types);
@@ -119,7 +119,7 @@ class SemanticException :public std::runtime_error {
     std::wstring msg;
     std::string ascii_msg;
 public:
-    SemanticException(const std::wstring& wstr) :msg(wstr), ascii_msg(to_ascii_string(msg)), std::runtime_error("ParserException") {}
+    SemanticException(const std::wstring& wstr) :std::runtime_error("ParserException"), msg(wstr), ascii_msg(to_ascii_string(msg)) {}
     const std::wstring& message() const noexcept { return msg; }
     const char* what() const noexcept override { return ascii_msg.c_str(); }
 };

@@ -144,9 +144,9 @@ Token Lexer::int_const() {
 
     try {
         return make_token(TokenType::INTCONST, position, std::stoi(str));
-    } catch (std::invalid_argument) {
+    } catch (const std::invalid_argument& ) {
         report_error(position, L"Cannot convert this literal to int", str);
-    } catch (std::out_of_range) {
+    } catch (const std::out_of_range& ) {
         report_error(position, L"Number is to big to be albe to fit in an int", str);    
     }
 }

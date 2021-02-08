@@ -50,12 +50,12 @@ private:
     void advance() noexcept;
     BuiltinType get_builtin_type(const std::wstring& wstr) const;
     
-    void report_unexpected_token(const std::wstring& msg);
-    void report_expected_expression();
-    void report_invalid_type() const;
-    void report_expected_parameter();
+    [[ noreturn ]] void report_unexpected_token(const std::wstring& msg);
+    [[ noreturn ]] void report_expected_expression();
+    [[ noreturn ]] void report_invalid_type() const;
+    [[ noreturn ]] void report_expected_parameter();
 
-    void report_error(const Position& start, const Position& end, const std::wstring& error_msg);
+    [[ noreturn ]] void report_error(const Position& start, const Position& end, const std::wstring& error_msg);
 
     template<typename ... Types>
     void expect(const std::wstring& msg, Types&&... types);
@@ -74,7 +74,7 @@ class ParserException :public std::runtime_error {
     std::wstring msg;
     std::string ascii_msg;
 public:
-    ParserException(const std::wstring& wstr) :msg(wstr), ascii_msg(to_ascii_string(msg)), std::runtime_error("ParserException") {}
+    ParserException(const std::wstring& wstr) :std::runtime_error("ParserException"), msg(wstr), ascii_msg(to_ascii_string(msg)) {}
     const std::wstring& message() const noexcept { return msg; }
     const char* what() const noexcept override { return ascii_msg.c_str(); }
 };

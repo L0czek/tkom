@@ -30,8 +30,8 @@ class Lexer {
     bool skip_space();
     bool skip_comment();
 
-    void report_error(const Position& error_position, const std::wstring& error_msg, wchar_t bad_char);
-    void report_error(const Position& error_position, const std::wstring& error_msg, const std::wstring& bad_lexem);
+    [[ noreturn ]] void report_error(const Position& error_position, const std::wstring& error_msg, wchar_t bad_char);
+    [[ noreturn ]] void report_error(const Position& error_position, const std::wstring& error_msg, const std::wstring& bad_lexem);
 public:
     Lexer(std::unique_ptr<Source> source = nullptr);
 
@@ -48,7 +48,7 @@ class LexerException :public std::runtime_error {
     std::wstring msg;
     std::string ascii_msg;
 public:
-    LexerException(const std::wstring& error) :msg(error), ascii_msg(to_ascii_string(msg)), std::runtime_error("LexerException") {}
+    LexerException(const std::wstring& error) :std::runtime_error("LexerException"), msg(error), ascii_msg(to_ascii_string(msg)) {}
     const char* what() const noexcept override { return ascii_msg.c_str(); }
     const std::wstring& message() const noexcept { return msg; }
 };

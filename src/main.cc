@@ -48,17 +48,17 @@ int main(int argc, char* argv[]) {
                 return compiled->execute();
             }
         }
-    } catch (SourceException e) {
+    } catch (const SourceException& e) {
         std::cerr << e.message() << L"\n";
-    } catch (LexerException e) {
+    } catch (const LexerException& e) {
         std::wcerr << e.message() << L"\n";
-    } catch (ParserException e) {
+    } catch (const ParserException& e) {
         std::wcerr << e.message() << L"\n";
-    } catch (SemanticException e) {
+    } catch (const SemanticException& e) {
         std::wcerr << e.message() << L"\n";
-    } catch (CompilerException e) {
+    } catch (const CompilerException& e) {
         std::wcerr << e.message() << L"\n";
-    } catch (std::exception& e) {
+    } catch (const std::exception& e) {
         std::cerr << "Commandline error: " << e.what() << "\n";
     } 
 }

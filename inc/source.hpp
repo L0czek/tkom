@@ -73,7 +73,7 @@ public:
 class SourceException :public std::runtime_error {
     std::string msg;
 public:
-    SourceException(const std::string& msg) : msg(msg), std::runtime_error("Source Exception") {}
+    SourceException(const std::string& msg) :  std::runtime_error("Source Exception"), msg(msg) {}
     const std::string& message() const noexcept { return msg; }
     const char* what() const noexcept override { return msg.c_str(); }
 };

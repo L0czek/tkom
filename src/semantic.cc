@@ -195,6 +195,7 @@ SemanticAnalyser::ExprType SemanticAnalyser::from_builtin_type_value(BuiltinType
         case BuiltinType::String: return SemanticAnalyser::ExprType::String;
         case BuiltinType::IntPointer: return SemanticAnalyser::ExprType::IntPointer;
     }
+    throw SemanticException(L"Invalid type");
 }
 
 SemanticAnalyser::ExprType SemanticAnalyser::from_builtin_type(BuiltinType type) {
@@ -203,6 +204,7 @@ SemanticAnalyser::ExprType SemanticAnalyser::from_builtin_type(BuiltinType type)
         case BuiltinType::String: return SemanticAnalyser::ExprType::StringReference;
         case BuiltinType::IntPointer: return SemanticAnalyser::ExprType::IntPointerReference;
     }
+    throw SemanticException(L"Invalid type");
 }
 
 void SemanticAnalyser::visit(const IntConst& expr) {
@@ -328,6 +330,9 @@ void SemanticAnalyser::check_assignable_by(const std::unique_ptr<Expression>& ex
         case SemanticAnalyser::ExprType::IntPointer:
         case SemanticAnalyser::ExprType::IntPointerReference:
             require(SemanticAnalyser::ExprType::IntPointerReference);
+            break;
+        default:
+            throw SemanticException(L"Invalid assignment, this should not happend");
     }
 }
 
@@ -434,6 +439,7 @@ std::wstring SemanticAnalyser::repr(SemanticAnalyser::ExprType type) {
         case SemanticAnalyser::ExprType::StringReference: return L"reference to a string variable";
         case SemanticAnalyser::ExprType::Bool: return L"boolean value";
     }
+    throw SemanticException(L"Invalid type");
 }
 
 void SemanticAnalyser::yield_return() {

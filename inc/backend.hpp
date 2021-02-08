@@ -125,7 +125,7 @@ class CompilerException :public std::runtime_error {
     std::wstring msg;
     std::string ascii_msg;
 public:
-    CompilerException(const std::wstring& wstr) :msg(wstr), ascii_msg(to_ascii_string(msg)), std::runtime_error("CompilerException") {}
+    CompilerException(const std::wstring& wstr) :std::runtime_error("CompilerException"), msg(wstr), ascii_msg(to_ascii_string(msg)) {}
     const std::wstring& message() const noexcept { return msg; }
     const char* what() const noexcept override { return ascii_msg.c_str(); }
 };

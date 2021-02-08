@@ -55,7 +55,7 @@ bool is_unary_op(const Token& token) {
 std::optional<int> get_int(const Token& token) {
     try {
         return std::get<int>(token.value);
-    } catch (std::bad_variant_access) {
+    } catch (const std::bad_variant_access& ) {
         return {};
     }
 }
@@ -63,13 +63,13 @@ std::optional<int> get_int(const Token& token) {
 std::optional<std::wstring> get_string(const Token& token) {
     try {
         return std::get<std::wstring>(token.value);
-    } catch (std::bad_variant_access) {
+    } catch (const std::bad_variant_access& ) {
         return {};    
     }
 }
 
 Token make_token(TokenType type, const Position& position) {
-    return Token{type, position};
+    return Token{type, position, std::variant<int, std::wstring>()};
 }
 
 Token make_token(TokenType type, const Position& position, int value) {

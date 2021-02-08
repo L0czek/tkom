@@ -4,6 +4,7 @@
 #include "visitor.hpp"
 #include "node.hpp"
 #include "common.hpp"
+#include <stdexcept>
 #include <string>
 
 #define OP(op) return #op;
@@ -75,6 +76,7 @@ public:
             case UnaryOperator::Deref: return L'*';
             case UnaryOperator::BooleanNeg: return L'!';
         }
+        throw std::runtime_error("Undefined operator");
     }
     std::wstring repr(BinaryOperator op) {
         switch (op) {
@@ -101,6 +103,7 @@ public:
             case BinaryOperator::BooleanAnd: return L"&&";
             case BinaryOperator::BooleanOr: return L"||";
         }
+        throw std::runtime_error("Undefined operator");
     }
 };
 
