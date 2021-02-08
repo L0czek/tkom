@@ -1,25 +1,30 @@
 #include "parser.hpp"
 #include <iostream>
-std::unique_ptr<Lexer> Parser::attach_lexer(std::unique_ptr<Lexer> lex) noexcept {
+std::unique_ptr<Lexer> Parser::attach_lexer(std::unique_ptr<Lexer> lex) noexcept
+{
 	auto tmp = std::move(lexer);
 	lexer = std::move(lex);
 	advance();
 	return tmp;
 }
 
-std::unique_ptr<Lexer> Parser::detach_lexer() noexcept {
-    return std::move(lexer);
+std::unique_ptr<Lexer> Parser::detach_lexer() noexcept
+{
+	return std::move(lexer);
 }
 
-void Parser::advance() noexcept {
+void Parser::advance() noexcept
+{
 	token = lexer->next();
 }
 
-std::unique_ptr<Program> Parser::parse() {
-    return parse_Program();
+std::unique_ptr<Program> Parser::parse()
+{
+	return parse_Program();
 }
 
-BuiltinType Parser::get_builtin_type(const std::wstring& wstr) const {
+BuiltinType Parser::get_builtin_type(const std::wstring &wstr) const
+{
 	if (wstr == L"int") {
 		return BuiltinType::Int;
 	} else if (wstr == L"string") {
@@ -29,64 +34,67 @@ BuiltinType Parser::get_builtin_type(const std::wstring& wstr) const {
 	}
 }
 
-std::unique_ptr<Program> Parser::parse_Program() {
-	std::list<std::unique_ptr<VariableDecl>> global_vars;
-    std::list<std::unique_ptr<FunctionDecl>> functions;
-    std::list<std::unique_ptr<ExternFunctionDecl>> externs;
+std::unique_ptr<Program> Parser::parse_Program()
+{
+	std::list<std::unique_ptr<VariableDecl> > global_vars;
+	std::list<std::unique_ptr<FunctionDecl> > functions;
+	std::list<std::unique_ptr<ExternFunctionDecl> > externs;
 
-    auto function = parse_FunctionDecl();
-    auto variable = parse_VariableDecl();
-    auto extern_func = parse_ExternFunctionDecl();
+	auto function = parse_FunctionDecl();
+	auto variable = parse_VariableDecl();
+	auto extern_func = parse_ExternFunctionDecl();
 
-    while (function || variable || extern_func) {
-    	if (function) {
-    		functions.push_back(std::move(function));
-    	}
-    	if (variable) {
-    		global_vars.push_back(std::move(variable));
-    	}
-        if (extern_func) {
-            externs.push_back(std::move(extern_func));
-        }
-    	function = parse_FunctionDecl();
-    	variable = parse_VariableDecl();
-        extern_func = parse_ExternFunctionDecl();
-    }
+	while (function || variable || extern_func) {
+		if (function) {
+			functions.push_back(std::move(function));
+		}
+		if (variable) {
+			global_vars.push_back(std::move(variable));
+		}
+		if (extern_func) {
+			externs.push_back(std::move(extern_func));
+		}
+		function = parse_FunctionDecl();
+		variable = parse_VariableDecl();
+		extern_func = parse_ExternFunctionDecl();
+	}
 
-    expect(L"Expected function `fn` declaration or variable `let` definition token", TokenType::END_OF_FILE);
+	expect(L"Expected function `fn` declaration or variable `let` definition token", TokenType::END_OF_FILE);
 
-    return make<Program>(std::move(global_vars), std::move(functions), std::move(externs));
+	return make<Program>(std::move(global_vars), std::move(functions), std::move(externs));
 }
 
-std::unique_ptr<ExternFunctionDecl> Parser::parse_ExternFunctionDecl() {
-    if (!is_one_of(token, TokenType::KW_EXTERN)) {
-        return nullptr;
-    }
-    const Position position = token.position;
-    advance();
+std::unique_ptr<ExternFunctionDecl> Parser::parse_ExternFunctionDecl()
+{
+	if (!is_one_of(token, TokenType::KW_EXTERN)) {
+		return nullptr;
+	}
+	const Position position = token.position;
+	advance();
 
-    eat(L"Expected `fn` keyword", TokenType::KW_FN);
-    expect(L"Expected function name", TokenType::IDENTIFIER);
-    std::wstring name = *get_string(token);
-    advance();
+	eat(L"Expected `fn` keyword", TokenType::KW_FN);
+	expect(L"Expected function name", TokenType::IDENTIFIER);
+	std::wstring name = *get_string(token);
+	advance();
 
 	eat(L"Expected openning paren `(`", TokenType::L_PAREN);
 	auto parameters = parse_ParameterList();
 	eat(L"Expected closing paren `)`", TokenType::R_PAREN);
-	
+
 	eat(L"Expected type declaration `->` token", TokenType::TYPE_DECL);
 	auto type = parse_Type();
-    eat(L"Expected `;` after extern function declaration", TokenType::SEMICOLON);
+	eat(L"Expected `;` after extern function declaration", TokenType::SEMICOLON);
 
-    return make<ExternFunctionDecl>(position, std::move(name), type, std::move(parameters));
+	return make<ExternFunctionDecl>(position, std::move(name), type, std::move(parameters));
 }
 
-std::unique_ptr<FunctionDecl> Parser::parse_FunctionDecl() {
+std::unique_ptr<FunctionDecl> Parser::parse_FunctionDecl()
+{
 	if (!is_one_of(token, TokenType::KW_FN)) {
 		return nullptr;
 	}
 	const Position position = token.position;
-    advance();
+	advance();
 
 	expect(L"Expected function name", TokenType::IDENTIFIER);
 	std::wstring name = *get_string(token);
@@ -95,7 +103,7 @@ std::unique_ptr<FunctionDecl> Parser::parse_FunctionDecl() {
 	eat(L"Expected openning paren `(`", TokenType::L_PAREN);
 	auto parameters = parse_ParameterList();
 	eat(L"Expected closing paren `)`", TokenType::R_PAREN);
-	
+
 	eat(L"Expected type declaration `->` token", TokenType::TYPE_DECL);
 	auto type = parse_Type();
 	auto block = parse_Block();
@@ -103,7 +111,8 @@ std::unique_ptr<FunctionDecl> Parser::parse_FunctionDecl() {
 	return make<FunctionDecl>(position, std::move(name), type, std::move(parameters), std::move(block));
 }
 
-std::unique_ptr<VariableDecl> Parser::parse_VariableDecl() {
+std::unique_ptr<VariableDecl> Parser::parse_VariableDecl()
+{
 	if (!is_one_of(token, TokenType::KW_LET)) {
 		return nullptr;
 	}
@@ -128,13 +137,14 @@ std::unique_ptr<VariableDecl> Parser::parse_VariableDecl() {
 	return make<VariableDecl>(std::move(list));
 }
 
-VariableDecl::SingleVarDecl Parser::parse_SingleVarDecl() {
+VariableDecl::SingleVarDecl Parser::parse_SingleVarDecl()
+{
 	VariableDecl::SingleVarDecl var;
 
 	expect(L"Expected variable name", TokenType::IDENTIFIER);
 	var.name = *get_string(token);
-	var.pos = token.position; 
-    advance();
+	var.pos = token.position;
+	advance();
 
 	if (is_one_of(token, TokenType::ASSIGN)) {
 		advance();
@@ -148,7 +158,8 @@ VariableDecl::SingleVarDecl Parser::parse_SingleVarDecl() {
 	return var;
 }
 
-BuiltinType Parser::parse_Type() {
+BuiltinType Parser::parse_Type()
+{
 	expect(L"Expected type name", TokenType::IDENTIFIER);
 	std::wstring name = *get_string(token);
 
@@ -167,7 +178,8 @@ BuiltinType Parser::parse_Type() {
 	}
 }
 
-std::list<FunctionDecl::Parameter> Parser::parse_ParameterList() {
+std::list<FunctionDecl::Parameter> Parser::parse_ParameterList()
+{
 	std::list<FunctionDecl::Parameter> list;
 	auto param = parse_SingleParameter();
 	if (!param) {
@@ -188,21 +200,23 @@ std::list<FunctionDecl::Parameter> Parser::parse_ParameterList() {
 	return list;
 }
 
-std::optional<FunctionDecl::Parameter> Parser::parse_SingleParameter() {
+std::optional<FunctionDecl::Parameter> Parser::parse_SingleParameter()
+{
 	if (!is_one_of(token, TokenType::IDENTIFIER)) {
 		return {};
 	}
 	std::wstring name = *get_string(token);
-    const Position pos = token.position;
+	const Position pos = token.position;
 	advance();
 	eat(L"Expected type declaration token `:`", TokenType::COLON);
 	auto type = parse_Type();
-	return FunctionDecl::Parameter{std::move(name), type, pos};
+	return FunctionDecl::Parameter{ std::move(name), type, pos };
 }
 
-std::unique_ptr<Block> Parser::parse_Block() {
+std::unique_ptr<Block> Parser::parse_Block()
+{
 	eat(L"Expected `{` paren", TokenType::LS_PAREN);
-	std::list<std::unique_ptr<Statement>> list;
+	std::list<std::unique_ptr<Statement> > list;
 	auto statement = parse_Statement();
 	while (statement) {
 		list.push_back(std::move(statement));
@@ -212,7 +226,8 @@ std::unique_ptr<Block> Parser::parse_Block() {
 	return make<Block>(std::move(std::move(list)));
 }
 
-std::unique_ptr<Expression> Parser::parse_ConditionalExpression() {
+std::unique_ptr<Expression> Parser::parse_ConditionalExpression()
+{
 	auto node = parse_UnaryLogicalExpr();
 	if (!node) {
 		return nullptr;
@@ -230,7 +245,8 @@ std::unique_ptr<Expression> Parser::parse_ConditionalExpression() {
 	return node;
 }
 
-std::unique_ptr<Expression> Parser::parse_UnaryLogicalExpr() {
+std::unique_ptr<Expression> Parser::parse_UnaryLogicalExpr()
+{
 	if (is_one_of(token, TokenType::BOOLEAN_NEG)) {
 		auto position = token.position;
 		advance();
@@ -244,7 +260,8 @@ std::unique_ptr<Expression> Parser::parse_UnaryLogicalExpr() {
 	}
 }
 
-std::unique_ptr<Expression> Parser::parse_LogicalExpr() {
+std::unique_ptr<Expression> Parser::parse_LogicalExpr()
+{
 	auto node = parse_ArithmeticalExpr();
 	if (!node) {
 		return nullptr;
@@ -262,7 +279,8 @@ std::unique_ptr<Expression> Parser::parse_LogicalExpr() {
 	return node;
 }
 
-std::unique_ptr<Expression> Parser::parse_ArithmeticalExpr() {
+std::unique_ptr<Expression> Parser::parse_ArithmeticalExpr()
+{
 	auto node = parse_AdditiveExpr();
 	if (!node) {
 		return nullptr;
@@ -280,7 +298,8 @@ std::unique_ptr<Expression> Parser::parse_ArithmeticalExpr() {
 	return node;
 }
 
-std::unique_ptr<Expression> Parser::parse_AdditiveExpr() {
+std::unique_ptr<Expression> Parser::parse_AdditiveExpr()
+{
 	auto node = parse_MultiplicativeExpr();
 	if (!node) {
 		return nullptr;
@@ -298,7 +317,8 @@ std::unique_ptr<Expression> Parser::parse_AdditiveExpr() {
 	return node;
 }
 
-std::unique_ptr<Expression> Parser::parse_MultiplicativeExpr() {
+std::unique_ptr<Expression> Parser::parse_MultiplicativeExpr()
+{
 	auto node = parse_UnaryExpression();
 	if (!node) {
 		return nullptr;
@@ -316,8 +336,9 @@ std::unique_ptr<Expression> Parser::parse_MultiplicativeExpr() {
 	return node;
 }
 
-std::unique_ptr<Expression> Parser::parse_UnaryExpression() {
-	std::stack<std::pair<UnaryOperator, Position>> operators;
+std::unique_ptr<Expression> Parser::parse_UnaryExpression()
+{
+	std::stack<std::pair<UnaryOperator, Position> > operators;
 	while (is_unary_op(token)) {
 		operators.push(std::make_pair(UnOp_from_token(token), token.position));
 		advance();
@@ -332,14 +353,15 @@ std::unique_ptr<Expression> Parser::parse_UnaryExpression() {
 		return nullptr;
 	}
 	while (!operators.empty()) {
-		auto [ op, position ] = operators.top();
+		auto [op, position] = operators.top();
 		operators.pop();
 		lhs = make<UnaryExpression>(position, op, std::move(lhs));
 	}
 	return lhs;
 }
 
-std::unique_ptr<Expression> Parser::parse_Factor() {
+std::unique_ptr<Expression> Parser::parse_Factor()
+{
 	auto int_const = parse_IntConst();
 	if (int_const) {
 		return int_const;
@@ -363,7 +385,8 @@ std::unique_ptr<Expression> Parser::parse_Factor() {
 	return nullptr;
 }
 
-std::unique_ptr<IntConst> Parser::parse_IntConst() {
+std::unique_ptr<IntConst> Parser::parse_IntConst()
+{
 	if (is_one_of(token, TokenType::INTCONST)) {
 		auto value = *get_int(token);
 		auto position = token.position;
@@ -374,7 +397,8 @@ std::unique_ptr<IntConst> Parser::parse_IntConst() {
 	}
 }
 
-std::unique_ptr<StringConst> Parser::parse_StringConst() {
+std::unique_ptr<StringConst> Parser::parse_StringConst()
+{
 	if (is_one_of(token, TokenType::STRINGCONST)) {
 		auto value = *get_string(token);
 		auto position = token.position;
@@ -385,7 +409,8 @@ std::unique_ptr<StringConst> Parser::parse_StringConst() {
 	}
 }
 
-std::unique_ptr<Expression> Parser::parse_FuncCallOrVariableRef() {
+std::unique_ptr<Expression> Parser::parse_FuncCallOrVariableRef()
+{
 	if (!is_one_of(token, TokenType::IDENTIFIER)) {
 		return nullptr;
 	}
@@ -400,7 +425,8 @@ std::unique_ptr<Expression> Parser::parse_FuncCallOrVariableRef() {
 	}
 }
 
-std::unique_ptr<Expression> Parser::parse_NestedExpression() {
+std::unique_ptr<Expression> Parser::parse_NestedExpression()
+{
 	if (!is_one_of(token, TokenType::L_PAREN)) {
 		return nullptr;
 	}
@@ -410,8 +436,8 @@ std::unique_ptr<Expression> Parser::parse_NestedExpression() {
 	return expr;
 }
 
-
-std::unique_ptr<FunctionCall> Parser::parse_FunctionCall(const Position& position, std::wstring name) {
+std::unique_ptr<FunctionCall> Parser::parse_FunctionCall(const Position &position, std::wstring name)
+{
 	if (!is_one_of(token, TokenType::L_PAREN)) {
 		return nullptr;
 	}
@@ -421,8 +447,9 @@ std::unique_ptr<FunctionCall> Parser::parse_FunctionCall(const Position& positio
 	return make<FunctionCall>(position, std::move(name), std::move(arguments));
 }
 
-std::list<std::unique_ptr<Expression>> Parser::parse_CallArgumentList() {
-	std::list<std::unique_ptr<Expression>> list;
+std::list<std::unique_ptr<Expression> > Parser::parse_CallArgumentList()
+{
+	std::list<std::unique_ptr<Expression> > list;
 	auto node = parse_ArithmeticalExpr();
 	if (node) {
 		list.push_back(std::move(node));
@@ -438,7 +465,8 @@ std::list<std::unique_ptr<Expression>> Parser::parse_CallArgumentList() {
 	return list;
 }
 
-std::unique_ptr<Expression> Parser::parse_IndexExpression() {
+std::unique_ptr<Expression> Parser::parse_IndexExpression()
+{
 	if (!is_one_of(token, TokenType::LI_PAREN)) {
 		return nullptr;
 	}
@@ -448,7 +476,8 @@ std::unique_ptr<Expression> Parser::parse_IndexExpression() {
 	return index;
 }
 
-std::unique_ptr<Statement> Parser::parse_Statement() {
+std::unique_ptr<Statement> Parser::parse_Statement()
+{
 	auto for_stmt = parse_ForStatement();
 	if (for_stmt) {
 		return for_stmt;
@@ -482,13 +511,14 @@ std::unique_ptr<Statement> Parser::parse_Statement() {
 	return nullptr;
 }
 
-std::unique_ptr<IfStatement> Parser::parse_IfStatement() {
+std::unique_ptr<IfStatement> Parser::parse_IfStatement()
+{
 	if (!is_one_of(token, TokenType::KW_IF)) {
 		return nullptr;
 	}
 	advance();
-	
-	std::list<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Block>>> blocks;
+
+	std::list<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Block> > > blocks;
 	blocks.push_back(parse_ConditionalBlock());
 
 	while (is_one_of(token, TokenType::KW_ELIF)) {
@@ -496,7 +526,7 @@ std::unique_ptr<IfStatement> Parser::parse_IfStatement() {
 		blocks.push_back(parse_ConditionalBlock());
 	}
 
-	std::optional<std::unique_ptr<Block>> else_statement;
+	std::optional<std::unique_ptr<Block> > else_statement;
 	if (is_one_of(token, TokenType::KW_ELSE)) {
 		advance();
 		auto block = parse_Block();
@@ -505,7 +535,8 @@ std::unique_ptr<IfStatement> Parser::parse_IfStatement() {
 	return make<IfStatement>(std::move(blocks), std::move(else_statement));
 }
 
-std::pair<std::unique_ptr<Expression>, std::unique_ptr<Block>> Parser::parse_ConditionalBlock() {
+std::pair<std::unique_ptr<Expression>, std::unique_ptr<Block> > Parser::parse_ConditionalBlock()
+{
 	auto condition = parse_ConditionalExpression();
 	if (!condition) {
 		report_expected_expression();
@@ -514,7 +545,8 @@ std::pair<std::unique_ptr<Expression>, std::unique_ptr<Block>> Parser::parse_Con
 	return std::make_pair(std::move(condition), std::move(block));
 }
 
-std::unique_ptr<ForStatement> Parser::parse_ForStatement() {
+std::unique_ptr<ForStatement> Parser::parse_ForStatement()
+{
 	if (!is_one_of(token, TokenType::KW_FOR)) {
 		return nullptr;
 	}
@@ -522,14 +554,17 @@ std::unique_ptr<ForStatement> Parser::parse_ForStatement() {
 	expect(L"Expected loop's variable name", TokenType::IDENTIFIER);
 	std::wstring name = *get_string(token);
 	const auto pos = token.position;
-    advance();
+	advance();
 	eat(L"Expected `in` keyword", TokenType::KW_IN);
-	auto [ start, end, increase ] = parse_Range();
+	auto [start, end, increase] = parse_Range();
 	auto block = parse_Block();
-	return make<ForStatement>(std::move(name), pos, std::move(start), std::move(end), std::move(increase), std::move(block));
+	return make<ForStatement>(std::move(name), pos, std::move(start), std::move(end), std::move(increase),
+				  std::move(block));
 }
 
-std::tuple<std::unique_ptr<Expression>, std::unique_ptr<Expression>, std::optional<std::unique_ptr<Expression>>> Parser::parse_Range() {
+std::tuple<std::unique_ptr<Expression>, std::unique_ptr<Expression>, std::optional<std::unique_ptr<Expression> > >
+Parser::parse_Range()
+{
 	auto start = parse_ArithmeticalExpr();
 	if (!start) {
 		report_expected_expression();
@@ -539,7 +574,7 @@ std::tuple<std::unique_ptr<Expression>, std::unique_ptr<Expression>, std::option
 	if (!end) {
 		report_expected_expression();
 	}
-	std::optional<std::unique_ptr<Expression>> increase;
+	std::optional<std::unique_ptr<Expression> > increase;
 	if (is_one_of(token, TokenType::RANGE_SEP)) {
 		advance();
 		auto inc = parse_ArithmeticalExpr();
@@ -551,26 +586,29 @@ std::tuple<std::unique_ptr<Expression>, std::unique_ptr<Expression>, std::option
 	return std::make_tuple(std::move(start), std::move(end), std::move(increase));
 }
 
-std::unique_ptr<WhileStatement> Parser::parse_WhileStatement() {
+std::unique_ptr<WhileStatement> Parser::parse_WhileStatement()
+{
 	if (!is_one_of(token, TokenType::KW_WHILE)) {
 		return nullptr;
 	}
 	advance();
-	auto [ expr, block ] = parse_ConditionalBlock();
+	auto [expr, block] = parse_ConditionalBlock();
 	return make<WhileStatement>(std::move(expr), std::move(block));
 }
 
-std::unique_ptr<ReturnStatement> Parser::parse_ReturnSatetemnt() {
+std::unique_ptr<ReturnStatement> Parser::parse_ReturnSatetemnt()
+{
 	if (!is_one_of(token, TokenType::KW_RETURN)) {
 		return nullptr;
 	}
-    advance();
+	advance();
 	auto expr = parse_ArithmeticalExpr();
 	eat(L"Expected semicolon `;` et the end of return statement", TokenType::SEMICOLON);
 	return make<ReturnStatement>(std::move(expr));
 }
 
-std::unique_ptr<Statement> Parser::parse_AssignStatement() {
+std::unique_ptr<Statement> Parser::parse_AssignStatement()
+{
 	auto expr = parse_ConditionalExpression();
 	if (!expr) {
 		return nullptr;
@@ -579,7 +617,7 @@ std::unique_ptr<Statement> Parser::parse_AssignStatement() {
 		advance();
 		return make<ExpressionStatement>(std::move(expr));
 	}
-	std::list<std::unique_ptr<Expression>> parts;
+	std::list<std::unique_ptr<Expression> > parts;
 	parts.push_back(std::move(expr));
 	while (is_one_of(token, TokenType::ASSIGN)) {
 		advance();
@@ -593,47 +631,38 @@ std::unique_ptr<Statement> Parser::parse_AssignStatement() {
 	return make<AssignmentStatement>(std::move(parts));
 }
 
-void Parser::report_unexpected_token(const std::wstring& msg) {
+void Parser::report_unexpected_token(const std::wstring &msg)
+{
 	const auto position = token.position;
-    throw ParserException {
-        concat(position_in_file(position), L"\n In \n",
-            lexer->get_lines(position.line_number, position.line_number+1), L"\n",
-            error_marker(position), L"\n",
-			L"\nError unexpected token\n", msg, L"\n Got `\033[31;1;4m", repr(token.type), L"\033[0m`\n"
-        )
-	};
+	throw ParserException{ concat(position_in_file(position), L"\n In \n",
+				      lexer->get_lines(position.line_number, position.line_number + 1), L"\n",
+				      error_marker(position), L"\n", L"\nError unexpected token\n", msg,
+				      L"\n Got `\033[31;1;4m", repr(token.type), L"\033[0m`\n") };
 }
 
-void Parser::report_expected_expression() {
+void Parser::report_expected_expression()
+{
 	const auto position = token.position;
-    throw ParserException {
-        concat(position_in_file(position), L"\n In \n",
-            lexer->get_lines(position.line_number, position.line_number+1), L"\n",
-            error_marker(position), L"\n", 
-			L"\nExpected expression but got ", repr(token.type)
-		)
-	};
+	throw ParserException{ concat(position_in_file(position), L"\n In \n",
+				      lexer->get_lines(position.line_number, position.line_number + 1), L"\n",
+				      error_marker(position), L"\n", L"\nExpected expression but got ",
+				      repr(token.type)) };
 }
 
-void Parser::report_invalid_type() const {
+void Parser::report_invalid_type() const
+{
 	const auto position = token.position;
-	throw ParserException {
-        concat(position_in_file(position), L"\n In \n",
-            lexer->get_lines(position.line_number, position.line_number+1), L"\n",
-            error_marker(position), L"\n",
- 			L"Invalid type you can only use int, int* or string\n"
-        )
-	};
+	throw ParserException{ concat(position_in_file(position), L"\n In \n",
+				      lexer->get_lines(position.line_number, position.line_number + 1), L"\n",
+				      error_marker(position), L"\n",
+				      L"Invalid type you can only use int, int* or string\n") };
 }
 
-void Parser::report_expected_parameter() {
+void Parser::report_expected_parameter()
+{
 	const auto position = token.position;
-	throw ParserException {
-        concat(position_in_file(position), L"\n In \n",
-            lexer->get_lines(position.line_number, position.line_number+1), L"\n",
-            error_marker(position), L"\n",
-			L"Expected parameter declaration starting with name but got", repr(token.type)
-		)
-	};
+	throw ParserException{ concat(position_in_file(position), L"\n In \n",
+				      lexer->get_lines(position.line_number, position.line_number + 1), L"\n",
+				      error_marker(position), L"\n",
+				      L"Expected parameter declaration starting with name but got", repr(token.type)) };
 }
-
